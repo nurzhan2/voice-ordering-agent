@@ -1,0 +1,24 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	# Вебхук WhatsApp
+	handle /wazzup/* {
+		reverse_proxy wa-bot:8090
+	}
+
+	# Панель заказов и стоп-лист.
+	# Доступ закрыт токеном из BACKEND_TOKEN — панель спросит его при входе.
+	handle /admin* {
+		reverse_proxy backend:8000
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		respond "OK" 200
+	}
+}

@@ -1,0 +1,37 @@
+services:
+  redis-sip:
+    image: redis:7-alpine
+    restart: unless-stopped
+    network_mode: host
+    command: redis-server --port 6380 --save "" --appendonly no
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    depends_on:
+      - redis-sip
+
+  livekit-sip:
+    image: livekit/sip:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      SIP_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY}
+        api_secret: ${LIVEKIT_API_SECRET}
+        ws_url: ws://127.0.0.1:7880
+        redis:
+          address: 127.0.0.1:6380
+        sip_port: 5080
+        rtp_port: 10000-20000
+        use_external_ip: true
+        logging:
+          level: info
+    depends_on:
+      - livekit

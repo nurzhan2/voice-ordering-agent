@@ -1,0 +1,1096 @@
+# ============================================================
+#  МЕНЮ КАФЕ «ТАРЕЛКА»
+#  Перенесено с tarelka-05.ru, Махачкала
+#
+#  Применить:  docker compose restart backend
+#
+#  tier у категории — роль в скрипте продаж:
+#    1 — продавать первым (сеты, пицца, мангал, горячее, хинкал)
+#    2 — допродавать (салаты, супы, азия, фастфуд, десерты)
+#    3 — обязательные добавки (гарниры, соусы, напитки)
+#
+#  ВАЖНО про aliases: это варианты, как гость произносит блюдо вслух.
+#  От них напрямую зависит, поймёт бот с первого раза или переспросит.
+#  Проставлены по здравому смыслу — стоит дополнить по записям звонков.
+# ============================================================
+
+settings:
+  name: Тарелка
+  operator_name: Амина
+  phone: ""
+  city: Махачкала
+
+  opens: "10:00"
+  closes: "23:00"
+  timezone: Europe/Moscow
+
+  # На время отладки — принимать заказы круглосуточно.
+  # ПЕРЕД БОЕВЫМ ЗАПУСКОМ поставить false.
+  ignore_hours: true
+
+  delivery_time: в течение часа
+
+  # Уточнить у заказчика: на сайте минимальная сумма есть,
+  # но конкретное значение не указано.
+  min_order: 0
+
+  # Куда присылать новые заказы. Пусто — уведомления выключены.
+  manager_whatsapp: ""
+
+  delivery_zone:
+    - Махачкала
+    - Каспийск
+  zone_note: Доставляем по Махачкале и Каспийску.
+
+categories:
+  - {key: special,  name: Спецпредложение, tier: 1}
+  - {key: sushi,    name: Японская кухня,  tier: 1}
+  - {key: pizza,    name: Пицца,           tier: 1}
+  - {key: mangal,   name: Мангал,          tier: 1}
+  - {key: hot,      name: Горячие блюда,   tier: 1}
+  - {key: flour,    name: Мучные блюда,    tier: 1}
+  - {key: chudu,    name: Чуду,            tier: 1}
+  - {key: asia,     name: Азия,            tier: 2}
+  - {key: salads,   name: Салаты,          tier: 2}
+  - {key: soups,    name: Супы,            tier: 2}
+  - {key: fastfood, name: Фаст-фуд,        tier: 2}
+  - {key: desserts, name: Десерты,         tier: 2}
+  - {key: garnish,  name: Гарниры,         tier: 3, addon_kind: garnish}
+  - {key: sauces,   name: Соусы,           tier: 3, addon_kind: sauce}
+  - {key: lemonade, name: Лимонады и коктейли, tier: 3, addon_kind: drink}
+  - {key: drinks,   name: Напитки,         tier: 3, addon_kind: drink}
+
+items:
+
+  # ─── СПЕЦПРЕДЛОЖЕНИЕ ───────────────────────────────────
+  - name: Курица на углях
+    category: special
+    description: 1.2 кг, акция
+    price: 700
+    hit: true
+    aliases: [курица на углях, курица углях, курица гриль, курочка на углях]
+
+  # ─── ЯПОНСКАЯ КУХНЯ ────────────────────────────────────
+  - name: Суши и роллы с том ям
+    category: sushi
+    description: 800 г
+    price: 1590
+    hit: true
+    aliases: [суши и роллы с том ям, сет с том ямом, суши том ям]
+
+  - name: Сет Ассорти с роллами и сушами
+    category: sushi
+    description: 1300 г
+    price: 1590
+    hit: true
+    aliases: [сет ассорти с роллами, большой сет, сет с сушами, ассорти роллы суши]
+
+  - name: Сет Ассорти
+    category: sushi
+    price: 1420
+    aliases: [сет ассорти, ассорти сет]
+
+  - name: Сет Горячий
+    category: sushi
+    price: 1433
+    aliases: [сет горячий, горячий сет, запечённый сет]
+
+  - name: Сет Том ям
+    category: sushi
+    description: суп плюс ролл, 700 г
+    price: 785
+    aliases: [сет том ям, том ям сет, суп с роллом]
+
+  - name: Сет Классический
+    category: sushi
+    price: 1398
+    aliases: [сет классический, классический сет, классика сет]
+
+  - name: Креветки темпура
+    category: sushi
+    description: 5 шт
+    price: 588
+    aliases: [креветки темпура, темпура, креветка в кляре]
+
+  - name: Том ям
+    category: sushi
+    description: 280 г
+    price: 395
+    hit: true
+    aliases: [том ям, томям, том ям ролл]
+
+  - name: Филадельфия Шик
+    category: sushi
+    price: 466
+    hit: true
+    aliases: [филадельфия шик, филадельфия, филка шик]
+
+  - name: Филадельфия Классик
+    category: sushi
+    price: 496
+    aliases: [филадельфия классик, классическая филадельфия, филка классик]
+
+  - name: Япоша
+    category: sushi
+    description: 230 г
+    price: 467
+    aliases: [япоша, ролл япоша]
+
+  - name: Нежный Яда
+    category: sushi
+    price: 488
+    aliases: [нежный яда, яда, ролл яда]
+
+  - name: Цезарь запеченный
+    category: sushi
+    price: 415
+    aliases: [цезарь запечённый, запечённый цезарь, ролл цезарь запечённый]
+
+  - name: Цезарь с курицей
+    category: sushi
+    price: 412
+    aliases: [цезарь с курицей ролл, ролл цезарь курица]
+
+  - name: Цезарь с креветкой
+    category: sushi
+    price: 423
+    aliases: [цезарь с креветкой ролл, ролл цезарь креветка]
+
+  - name: Асама
+    category: sushi
+    price: 412
+    aliases: [асама, ролл асама]
+
+  - name: Ойси ролл
+    category: sushi
+    price: 576
+    aliases: [ойси ролл, ойси]
+
+  - name: Нью-Йорк
+    category: sushi
+    price: 497
+    aliases: [нью йорк, ньюйорк, ролл нью йорк]
+
+  - name: Шанхай
+    category: sushi
+    price: 478
+    aliases: [шанхай, ролл шанхай]
+
+  - name: Калифорния с креветкой
+    category: sushi
+    price: 444
+    aliases: [калифорния с креветкой, калифорния креветка]
+
+  - name: Калифорния с лососем
+    category: sushi
+    price: 445
+    aliases: [калифорния с лососем, калифорния лосось, калифорния]
+
+  - name: Бешенный лосось
+    category: sushi
+    price: 488
+    aliases: [бешеный лосось, бешенный лосось, лосось запечённый]
+
+  - name: Пекин
+    category: sushi
+    description: 230 г
+    price: 388
+    aliases: [пекин, ролл пекин]
+
+  # ─── ПИЦЦА ─────────────────────────────────────────────
+  - name: Пицца Ассорти
+    category: pizza
+    description: 27 см
+    price: 465
+    aliases: [пицца ассорти, ассорти пицца]
+
+  - name: Пицца Куриная
+    category: pizza
+    description: 27 см
+    price: 465
+    aliases: [куриная пицца, пицца с курицей, курица пицца]
+
+  - name: Пицца Куриная с грибами
+    category: pizza
+    description: 27 см
+    price: 488
+    aliases: [куриная с грибами, пицца курица грибы]
+
+  - name: Пицца Грибная
+    category: pizza
+    description: 27 см
+    price: 498
+    aliases: [грибная пицца, пицца с грибами, грибная]
+
+  - name: Пицца Маргарита
+    category: pizza
+    description: 27 см
+    price: 390
+    aliases: [маргарита, пицца маргарита, маргаритка]
+
+  - name: Пицца Мексиканская
+    category: pizza
+    description: 27 см
+    price: 475
+    aliases: [мексиканская, пицца мексиканская, мексика]
+
+  - name: Пицца Пепперони
+    category: pizza
+    description: 27 см
+    price: 455
+    hit: true
+    aliases: [пепперони, пеперони, пиперони, острая пицца, пепперончик]
+
+  - name: Пицца Мясная
+    category: pizza
+    description: 27 см
+    price: 485
+    hit: true
+    aliases: [мясная пицца, пицца с мясом, мясная]
+
+  - name: Пицца Цезарь
+    category: pizza
+    description: 27 см
+    price: 487
+    aliases: [пицца цезарь, цезарь пицца]
+
+  - name: Пицца 4 сыра
+    category: pizza
+    description: 27 см
+    price: 477
+    aliases: [четыре сыра, 4 сыра, сырная пицца, четыре сыр]
+
+  - name: Пицца 4 Сезона
+    category: pizza
+    description: 27 см
+    price: 466
+    aliases: [четыре сезона, 4 сезона, четыре сезон]
+
+  - name: Пицца Тарелка
+    category: pizza
+    description: 27 см, фирменная
+    price: 420
+    hit: true
+    aliases: [пицца тарелка, фирменная пицца, ваша пицца]
+
+  - name: Пицца Охотничья
+    category: pizza
+    description: 27 см
+    price: 455
+    aliases: [охотничья, пицца охотничья, с колбасками]
+
+  - name: Пицца Ойси
+    category: pizza
+    description: 27 см
+    price: 777
+    aliases: [пицца ойси, ойси пицца]
+
+  - name: Пицца Фьюжн
+    category: pizza
+    description: 27 см
+    price: 486
+    aliases: [фьюжн, пицца фьюжн, фьюжен]
+
+  - name: Пицца Жульен
+    category: pizza
+    description: 27 см
+    price: 478
+    aliases: [жульен, пицца жульен]
+
+  - name: Пицца Шаурма
+    category: pizza
+    description: 27 см
+    price: 455
+    aliases: [пицца шаурма, шаурма пицца]
+
+  - name: Пиде ассорти
+    category: pizza
+    description: 500 г
+    price: 458
+    aliases: [пиде ассорти, пиде]
+
+  - name: Пиде с телятиной
+    category: pizza
+    description: 500 г
+    price: 458
+    aliases: [пиде с телятиной, пиде телятина, пиде мясо]
+
+  - name: Пиде с курицей
+    category: pizza
+    description: 400 г
+    price: 458
+    aliases: [пиде с курицей, пиде курица]
+
+  - name: Пиде с сыром
+    category: pizza
+    description: 400 г
+    price: 458
+    aliases: [пиде с сыром, пиде сыр]
+
+  # ─── МАНГАЛ ────────────────────────────────────────────
+  - name: Стейк из куриной грудки
+    category: mangal
+    price: 585
+    hit: true
+    aliases: [стейк из курицы, куриный стейк, стейк грудка, стейк]
+
+  - name: Скумбрия на углях
+    category: mangal
+    price: 423
+    aliases: [скумбрия, скумбрия на углях, рыба на углях]
+
+  # ─── ГОРЯЧИЕ БЛЮДА ─────────────────────────────────────
+  - name: Плов Узбекский
+    category: hot
+    description: 350 г
+    price: 345
+    hit: true
+    aliases: [плов, узбекский плов, плов узбекский]
+
+  - name: Бефстроганов с говядиной
+    category: hot
+    description: 550 г
+    price: 400
+    aliases: [бефстроганов, бифстроганов, беф строганов]
+
+  - name: Феттучини с курицей и грибами
+    category: hot
+    description: 350 г
+    price: 445
+    hit: true
+    aliases: [феттучини, фетучини, паста с курицей, феттучини с курицей]
+
+  - name: Курица с грибами в сливочном соусе
+    category: hot
+    description: 300 г
+    price: 385
+    aliases: [курица с грибами, курица в сливочном соусе, курица сливочная]
+
+  - name: Курица по-Арабски
+    category: hot
+    description: 300 г
+    price: 396
+    hit: true
+    aliases: [курица по арабски, арабская курица, по арабски]
+
+  - name: Курица по-Французски
+    category: hot
+    description: 300 г
+    price: 396
+    aliases: [курица по французски, французская курица, по французски]
+
+  - name: Обед горца
+    category: hot
+    price: 670
+    aliases: [обед горца, горец, горский обед]
+
+  - name: Жаркое из говядины
+    category: hot
+    description: 350 г
+    price: 433
+    aliases: [жаркое из говядины, жаркое говядина, жаркое мясное]
+
+  - name: Жаркое из курицы
+    category: hot
+    description: 350 г
+    price: 420
+    aliases: [жаркое из курицы, жаркое курица, жаркое куриное]
+
+  - name: Удон
+    category: hot
+    description: 300 г
+    price: 418
+    aliases: [удон, лапша удон]
+
+  # ─── МУЧНЫЕ БЛЮДА ──────────────────────────────────────
+  - name: Хинкал тонкий с отварным мясом
+    category: flour
+    description: 550 г
+    price: 675
+    hit: true
+    aliases: [хинкал с отварным мясом, тонкий хинкал, хинкал отварное мясо, хинкал]
+
+  - name: Хинкал тонкий с сушеным мясом
+    category: flour
+    description: 550 г
+    price: 675
+    aliases: [хинкал с сушёным мясом, хинкал сушёное мясо, хинкал сушёнка]
+
+  - name: Хинкал тонкий с сушеной колбасой
+    category: flour
+    description: 550 г
+    price: 675
+    aliases: [хинкал с колбасой, хинкал сушёная колбаса, хинкал колбаса]
+
+  - name: Чеченский хинкал с отварным мясом
+    category: flour
+    description: 350 г
+    price: 675
+    aliases: [чеченский хинкал, чеченский с отварным мясом, чеченский]
+
+  - name: Чеченский хинкал с сушеным мясом
+    category: flour
+    description: 350 г
+    price: 675
+    aliases: [чеченский с сушёным мясом, чеченский хинкал сушёное]
+
+  - name: Чеченский хинкал с сушеной колбасой
+    category: flour
+    description: 350 г
+    price: 675
+    aliases: [чеченский с колбасой, чеченский хинкал колбаса]
+
+  - name: Курзе с картошкой
+    category: flour
+    description: 180 г
+    price: 288
+    aliases: [курзе, курзе с картошкой, курзе картошка]
+
+  - name: Сет хинкальный
+    category: flour
+    description: 1790 г
+    price: 3200
+    hit: true
+    aliases: [хинкальный сет, сет хинкальный, большой хинкал]
+
+  - name: Булочка
+    category: flour
+    price: 30
+    aliases: [булочка, булка, хлеб]
+
+  # ─── ЧУДУ ──────────────────────────────────────────────
+  - name: Хачапури по-мегрельски
+    category: chudu
+    description: 520 г
+    price: 590
+    hit: true
+    aliases: [хачапури по мегрельски, мегрельский, хачапури мегрельское]
+
+  - name: Хачапури по-аджарски
+    category: chudu
+    description: 500 г
+    price: 455
+    hit: true
+    aliases: [хачапури по аджарски, аджарский, хачапури с яйцом, лодочка]
+
+  - name: Ботишал
+    category: chudu
+    price: 367
+    aliases: [ботишал, ботишалы]
+
+  - name: Кьячи
+    category: chudu
+    description: 300 г
+    price: 423
+    aliases: [кьячи, кячи]
+
+  - name: Тонкое чуду с мясом
+    category: chudu
+    description: 220 г
+    price: 277
+    hit: true
+    aliases: [чуду с мясом, мясное чуду, тонкое чуду мясо, чуду]
+
+  - name: Тонкое чуду с зеленью
+    category: chudu
+    description: 220 г
+    price: 245
+    aliases: [чуду с зеленью, зелёное чуду, чуду зелень]
+
+  - name: Тонкое чуду с картошкой и сыром
+    category: chudu
+    description: 220 г
+    price: 223
+    aliases: [чуду с картошкой, чуду картошка сыр, картофельное чуду]
+
+  # ─── АЗИЯ ──────────────────────────────────────────────
+  - name: Токпокки в арахисовом соусе
+    category: asia
+    description: 400 г
+    price: 430
+    aliases: [токпокки, токпоки, ток покки]
+
+  - name: Рамен Том Ям
+    category: asia
+    description: 430 г
+    price: 590
+    aliases: [рамен том ям, том ям рамен]
+
+  - name: Рамен классический
+    category: asia
+    description: 400 г
+    price: 560
+    aliases: [рамен, классический рамен, рамен классический]
+
+  - name: Якисоба с Кальмаром
+    category: asia
+    description: 350 г
+    price: 550
+    aliases: [якисоба, якисоба с кальмаром, якисоба кальмар]
+
+  - name: Рисовая лапша Пад Тай с креветками
+    category: asia
+    description: 350 г
+    price: 550
+    aliases: [пад тай, падтай, рисовая лапша, пад тай с креветками]
+
+  - name: Куриные крылья по-азиатски
+    category: asia
+    description: 330 г
+    price: 540
+    aliases: [крылья по азиатски, азиатские крылья, куриные крылья]
+
+  - name: Битые огурцы
+    category: asia
+    description: 280 г
+    price: 340
+    aliases: [битые огурцы, огурцы битые]
+
+  - name: Курица Гунг Пао
+    category: asia
+    description: 350 г
+    price: 475
+    aliases: [гунг пао, курица гунг пао, гонг пао]
+
+  - name: Пибимпап
+    category: asia
+    description: 400 г
+    price: 420
+    aliases: [пибимпап, бибимбап, пибимбап]
+
+  - name: Закуска из Мусса Кальмара с Манго-Сальсой
+    category: asia
+    description: 300 г
+    price: 400
+    aliases: [мусс кальмара, закуска из кальмара, кальмар с манго]
+
+  - name: Цыплёнок с Манго-Сальсой
+    category: asia
+    description: 400 г
+    price: 570
+    aliases: [цыплёнок с манго, цыплёнок манго сальса, курица с манго]
+
+  - name: Оммук
+    category: asia
+    description: 230 г
+    price: 300
+    aliases: [оммук, омук]
+
+  - name: Корн-Дог
+    category: asia
+    description: 250 г
+    price: 300
+    aliases: [корн дог, корндог, сосиска в тесте]
+
+  - name: Банановый Токк
+    category: asia
+    description: 280 г
+    price: 370
+    aliases: [банановый токк, токк, банановый ток]
+
+  # ─── САЛАТЫ ────────────────────────────────────────────
+  - name: Салат по-домашнему
+    category: salads
+    description: 250 г
+    price: 375
+    aliases: [салат по домашнему, домашний салат, по домашнему]
+
+  - name: Салат Цезарь с курицей
+    category: salads
+    description: 220 г
+    price: 450
+    hit: true
+    aliases: [цезарь с курицей, цезарь, салат цезарь]
+
+  - name: Салат Цезарь с креветкой
+    category: salads
+    description: 240 г
+    price: 570
+    aliases: [цезарь с креветкой, цезарь креветка]
+
+  - name: Салат Греческий
+    category: salads
+    description: 200 г
+    price: 390
+    aliases: [греческий, греческий салат, грека]
+
+  - name: Салат с хрустящими баклажанами
+    category: salads
+    description: 250 г
+    price: 370
+    hit: true
+    aliases: [салат с баклажанами, хрустящие баклажаны, баклажаны салат]
+
+  - name: Овощная нарезка
+    category: salads
+    description: 300 г
+    price: 390
+    aliases: [овощная нарезка, нарезка, овощи нарезка]
+
+  - name: Соленья ассорти
+    category: salads
+    description: 280 г
+    price: 290
+    aliases: [соленья, соленья ассорти, соленое ассорти]
+
+  # ─── СУПЫ ──────────────────────────────────────────────
+  - name: Окрошка
+    category: soups
+    description: 350 г
+    price: 325
+    hit: true
+    aliases: [окрошка, окрошечка]
+
+  - name: Борщ
+    category: soups
+    description: 400 мл
+    price: 322
+    aliases: [борщ, борщик]
+
+  - name: Горский суп
+    category: soups
+    description: 400 мл
+    price: 444
+    aliases: [горский суп, горский, суп горский]
+
+  - name: Чечевичный крем-суп
+    category: soups
+    description: 400 мл
+    price: 322
+    aliases: [чечевичный суп, крем суп из чечевицы, чечевичный]
+
+  - name: Том Ям суп
+    category: soups
+    description: 400 мл
+    price: 590
+    aliases: [том ям суп, суп том ям]
+
+  - name: Уйгурский лагман
+    category: soups
+    description: 400 мл, острое
+    price: 344
+    hit: true
+    aliases: [лагман, уйгурский лагман, лагман уйгурский]
+
+  # ─── ФАСТ-ФУД ──────────────────────────────────────────
+  - name: Чиабатта с жульеном
+    category: fastfood
+    description: 250 г
+    price: 250
+    aliases: [чиабатта с жульеном, чабатта жульен]
+
+  - name: Чиабатта с барбекю
+    category: fastfood
+    description: 250 г
+    price: 250
+    aliases: [чиабатта с барбекю, чабатта барбекю]
+
+  - name: Чиабатта с говяжьей котлетой
+    category: fastfood
+    description: 250 г
+    price: 250
+    aliases: [чиабатта с говядиной, чабатта говяжья котлета]
+
+  - name: Чиабатта с куриной котлетой
+    category: fastfood
+    description: 250 г
+    price: 250
+    aliases: [чиабатта с куриной котлетой, чабатта куриная]
+
+  - name: Чиабатта с курицей
+    category: fastfood
+    description: 250 г
+    price: 250
+    aliases: [чиабатта с курицей, чабатта курица]
+
+  - name: Чиабатта том ям
+    category: fastfood
+    description: 250 г, острое
+    price: 250
+    aliases: [чиабатта том ям, чабатта том ям]
+
+  - name: Комбо Для студента с шаурмой
+    category: fastfood
+    description: 600 г
+    price: 725
+    aliases: [комбо для студента, студенческое комбо, комбо студент]
+
+  - name: Семейный сет
+    category: fastfood
+    description: 1930 г
+    price: 1575
+    hit: true
+    aliases: [семейный сет, сет семейный, на семью]
+
+  - name: Куриное Комбо
+    category: fastfood
+    description: 1930 г
+    price: 1335
+    aliases: [куриное комбо, комбо куриное, комбо с курицей]
+
+  - name: Наггетсы
+    category: fastfood
+    description: 5 шт
+    price: 285
+    aliases: [наггетсы, нагетсы, наггетс]
+
+  - name: Гирос на тарелке
+    category: fastfood
+    description: 250 г
+    price: 350
+    aliases: [гирос на тарелке, гирос тарелка]
+
+  - name: Гирос
+    category: fastfood
+    description: 250 г
+    price: 298
+    aliases: [гирос, гирус]
+
+  - name: Шаурма на тарелке
+    category: fastfood
+    description: 250 г
+    price: 370
+    hit: true
+    aliases: [шаурма на тарелке, шаурма тарелка, шаверма на тарелке]
+
+  - name: Шаурма куриная в лаваше
+    category: fastfood
+    price: 220
+    hit: true
+    aliases: [шаурма, шаурма куриная, шаверма, шаурма в лаваше]
+
+  - name: Шаурма Макси в лаваше
+    category: fastfood
+    price: 298
+    aliases: [шаурма макси, макси шаурма, большая шаурма]
+
+  - name: Шаурма в кляре
+    category: fastfood
+    description: 350 г
+    price: 320
+    aliases: [шаурма в кляре, кляр шаурма]
+
+  - name: Шаурма в кляре со сливочным соусом
+    category: fastfood
+    description: 350 г
+    price: 340
+    aliases: [шаурма в кляре со сливочным, кляр сливочный]
+
+  - name: Шаурма в тандыре
+    category: fastfood
+    description: 200 г
+    price: 220
+    aliases: [шаурма в тандыре, тандырная шаурма]
+
+  - name: Шаурма в кляре Макси
+    category: fastfood
+    description: 400 г
+    price: 350
+    aliases: [шаурма в кляре макси, кляр макси]
+
+  - name: Крылышки в кляре с фри и соусом
+    category: fastfood
+    description: 350 г
+    price: 475
+    aliases: [крылышки с фри, крылья с картошкой, крылышки в кляре с фри]
+
+  - name: Крылышки в кляре
+    category: fastfood
+    description: 200 г
+    price: 320
+    aliases: [крылышки, крылья, крылышки в кляре]
+
+  # ─── ДЕСЕРТЫ ───────────────────────────────────────────
+  - name: Фондю
+    category: desserts
+    description: 700 г
+    price: 770
+    aliases: [фондю, фондью]
+
+  - name: Фрукты с шоколадом
+    category: desserts
+    description: 280 г
+    price: 385
+    hit: true
+    aliases: [фрукты с шоколадом, фрукты в шоколаде, шоколадные фрукты]
+
+  - name: Блинчики со сливочным муссом
+    category: desserts
+    description: 3 шт
+    price: 318
+    aliases: [блинчики со сливочным муссом, блинчики с муссом, блины сливочные]
+
+  - name: Сырники
+    category: desserts
+    description: 3 шт
+    price: 387
+    aliases: [сырники, сырнички]
+
+  - name: Венские вафли
+    category: desserts
+    description: 2 шт
+    price: 395
+    hit: true
+    aliases: [венские вафли, вафли, вафельки]
+
+  - name: Шоколадный фондан
+    category: desserts
+    price: 450
+    aliases: [шоколадный фондан, фондан, шоколадный десерт]
+
+  - name: Блины с нутеллой
+    category: desserts
+    description: 320 г
+    price: 350
+    aliases: [блины с нутеллой, блинчики с нутеллой, нутелла блины]
+
+  # ─── ГАРНИРЫ ───────────────────────────────────────────
+  - name: Рис отварной
+    category: garnish
+    description: 80 г
+    price: 119
+    aliases: [рис, рис отварной, отварной рис]
+
+  - name: Картофельное пюре
+    category: garnish
+    description: 250 г
+    price: 150
+    aliases: [пюре, картофельное пюре, картошка пюре]
+
+  - name: Котлеты куриные
+    category: garnish
+    description: 2 шт
+    price: 250
+    aliases: [куриные котлеты, котлеты куриные, котлетки куриные]
+
+  - name: Мясная подлива
+    category: garnish
+    description: 200 г
+    price: 157
+    aliases: [подлива, мясная подлива, подливка]
+
+  - name: Макароны
+    category: garnish
+    description: 250 г
+    price: 128
+    aliases: [макароны, макарошки, паста гарнир]
+
+  - name: Гречка
+    category: garnish
+    description: 200 г
+    price: 118
+    aliases: [гречка, гречневая каша, греча]
+
+  - name: Картофель фри
+    category: garnish
+    description: 150 г
+    price: 225
+    hit: true
+    aliases: [картофель фри, фри, картошка фри, картошечка фри]
+
+  - name: Картофель по-деревенски
+    category: garnish
+    description: 150 г
+    price: 225
+    hit: true
+    aliases: [картофель по деревенски, по деревенски, деревенская картошка]
+
+  - name: Котлеты мясные
+    category: garnish
+    description: 2 шт
+    price: 250
+    aliases: [мясные котлеты, котлеты мясные, котлетки мясные]
+
+  # ─── СОУСЫ ─────────────────────────────────────────────
+  - name: Соус белый
+    category: sauces
+    description: 50 г
+    price: 88
+    aliases: [белый соус, соус белый, сливочный соус]
+
+  - name: Красный чесночный соус
+    category: sauces
+    description: 25 г
+    price: 68
+    hit: true
+    aliases: [чесночный соус, красный соус, чесночный, острый соус]
+
+  - name: Соус сырный
+    category: sauces
+    description: 25 г
+    price: 50
+    aliases: [сырный соус, соус сырный, сыр соус]
+
+  - name: Кетчуп
+    category: sauces
+    description: 25 г
+    price: 50
+    aliases: [кетчуп, томатный соус]
+
+  - name: Соус барбекю
+    category: sauces
+    description: 25 г
+    price: 50
+    aliases: [барбекю, соус барбекю, ббкю, бэ бэ кю]
+
+  # ─── ЛИМОНАДЫ И КОКТЕЙЛИ ───────────────────────────────
+  - name: Лимонад Голубая Лагуна
+    category: lemonade
+    price: 485
+    aliases: [голубая лагуна, лимонад голубая лагуна, лагуна]
+
+  - name: Лимонад Мохито классический
+    category: lemonade
+    price: 485
+    hit: true
+    aliases: [мохито классический, лимонад мохито, мохито]
+
+  - name: Лимонад Клубничный мохито
+    category: lemonade
+    price: 485
+    aliases: [клубничный мохито, мохито клубника]
+
+  - name: Лимонад Цитрусовый
+    category: lemonade
+    price: 485
+    aliases: [цитрусовый лимонад, цитрусовый, лимонад цитрус]
+
+  - name: Лимонад Клубника-Апельсин
+    category: lemonade
+    price: 485
+    aliases: [клубника апельсин, лимонад клубника апельсин]
+
+  - name: Лимонад Тропический
+    category: lemonade
+    price: 485
+    aliases: [тропический лимонад, тропический, тропик]
+
+  - name: Лимонад Манго-Маракуйя
+    category: lemonade
+    price: 485
+    aliases: [манго маракуйя, лимонад манго, маракуйя]
+
+  - name: Лимонад Ягодный
+    category: lemonade
+    price: 485
+    aliases: [ягодный лимонад, ягодный, лимонад с ягодами]
+
+  - name: Коктейль Молочно-Банановый
+    category: lemonade
+    description: 300 мл
+    price: 295
+    aliases: [молочно банановый, банановый коктейль, молочный банановый]
+
+  - name: Коктейль Шоколадно-Банановый
+    category: lemonade
+    description: 300 мл
+    price: 295
+    aliases: [шоколадно банановый, шоколадный банановый коктейль]
+
+  - name: Коктейль Клубничный
+    category: lemonade
+    description: 300 мл
+    price: 295
+    aliases: [клубничный коктейль, коктейль клубника]
+
+  - name: Коктейль Африка
+    category: lemonade
+    price: 320
+    aliases: [коктейль африка, африка]
+
+  - name: Коктейль Пеликан
+    category: lemonade
+    description: 300 мл
+    price: 326
+    aliases: [коктейль пеликан, пеликан]
+
+  - name: Коктейль Витаминный заряд
+    category: lemonade
+    description: 300 мл
+    price: 355
+    aliases: [витаминный заряд, витаминный коктейль]
+
+  - name: Фреш апельсиновый
+    category: lemonade
+    description: 350 мл
+    price: 285
+    aliases: [апельсиновый фреш, фреш апельсин, свежевыжатый апельсиновый]
+
+  - name: Фреш морковный
+    category: lemonade
+    description: 350 мл
+    price: 210
+    aliases: [морковный фреш, фреш морковь]
+
+  - name: Фреш яблочный
+    category: lemonade
+    description: 300 мл
+    price: 255
+    aliases: [яблочный фреш, фреш яблоко]
+
+  # ─── НАПИТКИ ───────────────────────────────────────────
+  - name: Сок Добрый
+    category: drinks
+    description: 1 л
+    price: 220
+    aliases: [сок, сок добрый, добрый сок]
+
+  - name: Мохито б/а
+    category: drinks
+    price: 119
+    aliases: [мохито напиток, мохито безалкогольный]
+
+  - name: Kinza
+    category: drinks
+    description: 320 мл
+    price: 120
+    aliases: [кинза, kinza, кинза напиток]
+
+  - name: Добрый Кола
+    category: drinks
+    description: 0.33 л
+    price: 120
+    hit: true
+    aliases: [кола, добрый кола, coca cola, кока кола]
+
+  - name: Добрый Кола без сахара
+    category: drinks
+    description: 0.33 л
+    price: 120
+    aliases: [кола без сахара, зеро, кола зеро]
+
+  - name: Колд брю
+    category: drinks
+    price: 280
+    aliases: [колд брю, cold brew, холодный кофе]
+
+  - name: Рычал-Су
+    category: drinks
+    description: 0.5 л
+    price: 150
+    aliases: [рычал су, рычалсу, вода рычал су, минералка]
+
+  - name: Adrenaline Rush
+    category: drinks
+    description: 0.25 л
+    price: 150
+    aliases: [адреналин, adrenaline, энергетик, адреналин раш]
+
+  - name: Ягодный компот
+    category: drinks
+    description: 0.5 л
+    price: 100
+    hit: true
+    aliases: [ягодный компот, компот ягодный, компот]
+
+  - name: Кураговый компот
+    category: drinks
+    description: 0.5 л
+    price: 100
+    aliases: [кураговый компот, компот из кураги, курага компот]
+
+  - name: Пивной напиток Barbican
+    category: drinks
+    description: 0.33 л, безалкогольный
+    price: 160
+    aliases: [барбикан, barbican, безалкогольное пиво, пивной напиток]

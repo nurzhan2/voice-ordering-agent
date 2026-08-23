@@ -1,0 +1,83 @@
+name: restaurant-ai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --appendonly no
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports: ["127.0.0.1:8000:8000"]
+    env_file: .env
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    volumes:
+      - ./menu.yaml:/app/menu.yaml:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 10
+
+  # Звонки принимает LiveKit Cloud, агент подключается к нему исходящим
+  # соединением. Порт 5060 на этом сервере не нужен.
+  agent:
+    build: ./agent
+    restart: unless-stopped
+    env_file: .env
+    command: python agent.py start
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend: {condition: service_healthy}
+
+  wa-bot:
+    build: ./agent
+    restart: unless-stopped
+    env_file: .env
+    command: uvicorn wa_bot:app --host 0.0.0.0 --port 8090
+    environment:
+      BACKEND_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      backend: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    env_file: .env
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - wa-bot
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:

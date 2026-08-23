@@ -1,0 +1,15 @@
+# Secrets — never commit
+.env
+agent/.env
+ACCESS.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data and artifacts
+tarelka.db
+*.sql.gz
+demo_*.mp3
+menu_iiko.yaml

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тарелка — приём заказов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --board:#14161a; --board-2:#1c1f25; --line:#2a2e36;
+  --paper:#edeae3; --paper-edge:#dcd8ce;
+  --ink:#1a1c1f; --ink-soft:#5c5f66; --muted:#7c838d;
+  --fresh:#f2a93b; --warm:#e0713a; --late:#d4462f;
+  --sent:#2e6e6b; --done:#4a5158;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--board); color:var(--paper);
+  font-family:var(--sans); min-height:100vh;
+  background-image:radial-gradient(circle at 20% -10%,#1e222a 0%,transparent 55%);
+}
+
+/* ---------- шапка ---------- */
+header{
+  position:sticky; top:0; z-index:10;
+  background:rgba(20,22,26,.92); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  padding:18px 28px; display:flex; align-items:baseline; gap:28px; flex-wrap:wrap;
+}
+.brand{font-size:19px; font-weight:600; letter-spacing:-.01em}
+.brand span{color:var(--muted); font-weight:400}
+.live{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--mono); font-size:12px; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.08em;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--fresh);
+  box-shadow:0 0 0 0 rgba(242,169,59,.6); animation:pulse 2.4s infinite}
+.dot.off{background:var(--late);animation:none}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(242,169,59,.55)}
+  70%{box-shadow:0 0 0 9px rgba(242,169,59,0)}
+  100%{box-shadow:0 0 0 0 rgba(242,169,59,0)}
+}
+.stats{margin-left:auto; display:flex; gap:26px}
+.stat b{display:block; font-family:var(--mono); font-size:22px; font-weight:500}
+.stat i{font-style:normal; font-size:11px; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.08em}
+
+.tabs{display:flex; gap:2px; margin-left:8px}
+.tab{flex:none; font-size:13px; padding:7px 14px; border:1px solid var(--line);
+  background:transparent; color:var(--muted); border-radius:2px}
+.tab:hover{color:var(--paper); background:var(--board-2)}
+.tab.on{color:var(--board); background:var(--paper); border-color:var(--paper)}
+
+/* ---------- меню и стоп-лист ---------- */
+.mgroup{margin-bottom:26px}
+.mgroup h3{font-family:var(--mono); font-size:12px; font-weight:500; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.1em; margin-bottom:9px}
+.mrow{display:flex; align-items:center; gap:14px; padding:9px 12px;
+  border:1px solid var(--line); border-radius:2px; margin-bottom:5px;
+  background:var(--board-2)}
+.mrow.off{opacity:.42}
+.mrow .mn{flex:1; font-size:14px}
+.mrow .mp{font-family:var(--mono); font-size:13px; color:var(--muted)}
+.sw{width:44px; height:24px; border-radius:12px; border:none; cursor:pointer;
+  background:var(--sent); position:relative; transition:.18s; flex:none}
+.sw::after{content:""; position:absolute; top:3px; left:23px; width:18px; height:18px;
+  border-radius:50%; background:var(--paper); transition:.18s}
+.sw.off{background:#3a3f47}
+.sw.off::after{left:3px}
+
+/* ---------- разговоры ---------- */
+.call{border:1px solid var(--line); border-radius:2px; background:var(--board-2);
+  margin-bottom:14px; overflow:hidden}
+.call>summary{padding:13px 16px; cursor:pointer; display:flex; gap:14px;
+  align-items:baseline; font-size:14px; list-style:none}
+.call>summary::-webkit-details-marker{display:none}
+.call .cm{font-family:var(--mono); font-size:12px; color:var(--muted)}
+.call .cok{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--fresh)}
+.log{padding:6px 16px 16px; border-top:1px solid var(--line)}
+.line{display:flex; gap:12px; padding:5px 0; font-size:13.5px; line-height:1.5}
+.line b{font-family:var(--mono); font-size:11px; text-transform:uppercase;
+  letter-spacing:.06em; min-width:56px; color:var(--muted); font-weight:500; padding-top:3px}
+.line.bot b{color:var(--fresh)}
+
+/* ---------- стена чеков ---------- */
+main{padding:26px 28px 60px}
+.wall{display:grid; gap:18px;
+  grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+
+.ticket{
+  position:relative; background:var(--paper); color:var(--ink);
+  border-radius:3px 3px 0 0; padding:18px 18px 26px 22px;
+  box-shadow:0 12px 28px rgba(0,0,0,.42);
+  animation:drop .32s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes drop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+/* оторванный край снизу */
+.ticket::after{
+  content:""; position:absolute; left:0; right:0; bottom:-8px; height:9px;
+  background:var(--paper);
+  -webkit-mask:repeating-linear-gradient(135deg,#000 0 6px,transparent 6px 12px);
+  mask:repeating-linear-gradient(135deg,#000 0 6px,transparent 6px 12px);
+}
+/* рельса возраста слева */
+.ticket::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
+  background:var(--rail,var(--fresh)); border-radius:3px 0 0 0;
+}
+.ticket.age-1{--rail:var(--warm)}
+.ticket.age-2{--rail:var(--late)}
+.ticket.sent{--rail:var(--sent)}
+.ticket.done{--rail:var(--done); opacity:.55}
+
+.thead{display:flex; align-items:baseline; gap:10px; margin-bottom:12px}
+.num{font-family:var(--mono); font-size:26px; font-weight:600; letter-spacing:-.02em}
+.chan{font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+  padding:3px 7px; border:1px solid rgba(0,0,0,.18); border-radius:2px; color:var(--ink-soft)}
+.age{margin-left:auto; font-family:var(--mono); font-size:13px; color:var(--ink-soft)}
+
+.items{border-top:1px dashed rgba(0,0,0,.22); padding-top:10px}
+.row{display:flex; gap:10px; font-size:14px; padding:3px 0; align-items:baseline}
+.row .q{font-family:var(--mono); font-weight:600; min-width:26px}
+.row .n{flex:1}
+.row .s{font-family:var(--mono); color:var(--ink-soft)}
+.mods{font-size:12px; color:var(--ink-soft); padding-left:36px}
+
+.who{margin-top:12px; padding-top:10px; border-top:1px dashed rgba(0,0,0,.22);
+  font-size:13px; line-height:1.55}
+.who dt{display:inline; color:var(--ink-soft)}
+.who dd{display:inline; margin:0 0 0 4px}
+.who div{margin-bottom:2px}
+
+.total{display:flex; align-items:baseline; margin-top:14px; padding-top:11px;
+  border-top:2px solid var(--ink)}
+.total span{font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-soft)}
+.total b{margin-left:auto; font-family:var(--mono); font-size:24px; font-weight:600}
+
+.acts{display:flex; gap:7px; margin-top:14px}
+button{
+  flex:1; font-family:var(--sans); font-size:12.5px; font-weight:500;
+  padding:9px 8px; border:1px solid var(--ink); background:transparent;
+  color:var(--ink); border-radius:2px; cursor:pointer; transition:.14s;
+}
+button:hover{background:var(--ink); color:var(--paper)}
+button:focus-visible{outline:2px solid var(--sent); outline-offset:2px}
+button[disabled]{opacity:.3; cursor:default}
+button[disabled]:hover{background:transparent; color:var(--ink)}
+
+/* ---------- пусто / вход ---------- */
+.empty{text-align:center; padding:90px 20px; color:var(--muted)}
+.empty h2{font-family:var(--mono); font-weight:500; font-size:17px;
+  color:var(--paper); margin-bottom:10px}
+.empty p{font-size:14px; line-height:1.6}
+.gate{max-width:340px; margin:90px auto; text-align:center}
+.gate input{width:100%; padding:11px 13px; margin:14px 0;
+  background:var(--board-2); border:1px solid var(--line); color:var(--paper);
+  font-family:var(--mono); font-size:13px; border-radius:2px}
+.gate button{border-color:var(--muted); color:var(--paper)}
+.gate button:hover{background:var(--paper); color:var(--ink)}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important; transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Тарелка <span>· приём заказов</span></div>
+  <div class="live"><span class="dot" id="dot"></span><span id="livetext">на связи</span></div>
+  <nav class="tabs">
+    <button class="tab on" data-tab="orders">Заказы</button>
+    <button class="tab" data-tab="menu">Меню</button>
+    <button class="tab" data-tab="calls">Разговоры</button>
+  </nav>
+  <div class="stats">
+    <div class="stat"><b id="cnt">0</b><i>заказов</i></div>
+    <div class="stat"><b id="sum">0 ₽</b><i>на сумму</i></div>
+  </div>
+</header>
+
+<main><div class="wall" id="wall"></div></main>
+
+<script>
+let TOKEN = localStorage.getItem("tarelka_token") || "";
+let wall = document.getElementById("wall");
+
+const PAY = {cash:"наличными", transfer:"переводом", card:"картой курьеру"};
+const CHAN = {phone:"звонок", whatsapp:"whatsapp"};
+const FLOW = {
+  confirmed:      {next:"sent_to_kitchen", label:"На кухню"},
+  sent_to_kitchen:{next:"delivering",      label:"Передать курьеру"},
+  delivering:     {next:"completed",       label:"Доставлен"}
+};
+
+function ageText(iso){
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return "только что";
+  if (m < 60) return m + " мин";
+  return Math.floor(m/60) + " ч " + (m%60) + " мин";
+}
+function ageClass(iso, status){
+  if (status === "completed" || status === "cancelled") return "done";
+  if (status !== "confirmed") return "sent";
+  const m = (Date.now() - new Date(iso)) / 60000;
+  return m > 30 ? "age-2" : m > 15 ? "age-1" : "";
+}
+const esc = s => String(s ?? "").replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+
+function ticket(o){
+  const items = o.items.map(i => `
+    <div class="row"><span class="q">${i.qty}×</span>
+      <span class="n">${esc(i.name)}</span><span class="s">${i.sum} ₽</span></div>
+    ${i.modifiers.length ? `<div class="mods">+ ${esc(i.modifiers.join(", "))}</div>` : ""}
+  `).join("");
+
+  const act = FLOW[o.status];
+  return `
+  <article class="ticket ${ageClass(o.created_at, o.status)}">
+    <div class="thead">
+      <span class="num">№${o.number}</span>
+      <span class="chan">${CHAN[o.channel] || o.channel}</span>
+      <span class="age">${ageText(o.created_at)}</span>
+    </div>
+    <div class="items">${items}</div>
+    <dl class="who">
+      <div><dt>Гость:</dt><dd>${esc(o.name) || "—"} · ${esc(o.phone)}</dd></div>
+      <div><dt>Адрес:</dt><dd>${esc(o.address) || "—"}</dd></div>
+      <div><dt>Приборы:</dt><dd>${o.cutlery === false ? "не нужны" : (o.persons ? o.persons + " перс." : "—")}</dd></div>
+      <div><dt>Оплата:</dt><dd>${PAY[o.payment] || o.payment}${o.change_from ? ", сдача с " + o.change_from + " ₽" : ""}</dd></div>
+      ${o.comment ? `<div><dt>Просьба:</dt><dd>${esc(o.comment)}</dd></div>` : ""}
+    </dl>
+    <div class="total"><span>Итого</span><b>${o.total} ₽</b></div>
+    <div class="acts">
+      <button ${act ? `onclick="move(${o.number},'${act.next}')"` : "disabled"}>
+        ${act ? act.label : (o.status === "completed" ? "Доставлен" : "Отменён")}
+      </button>
+    </div>
+  </article>`;
+}
+
+async function move(number, status){
+  await fetch("/admin/orders/" + number, {
+    method:"PATCH",
+    headers:{"Content-Type":"application/json", ...(TOKEN && {Authorization:"Bearer " + TOKEN})},
+    body: JSON.stringify({status})
+  });
+  load();
+}
+
+function gate(){
+  document.querySelector("main").innerHTML = `
+    <div class="gate">
+      <h2 style="font-family:var(--mono);font-weight:500">Нужен ключ доступа</h2>
+      <input id="tok" type="password" placeholder="BACKEND_TOKEN" autocomplete="off">
+      <button id="go">Войти</button>
+      <p id="gate-err" style="color:var(--late);font-size:13px;margin-top:10px"></p>
+    </div>`;
+
+  const input = document.getElementById("tok");
+  const enter = async () => {
+    const value = input.value.trim();
+    if (!value) return;
+    // Проверяем ключ до того, как сохранить: иначе неверный запишется
+    // в хранилище и страница будет молча падать при каждом заходе.
+    const r = await fetch("/admin/orders?limit=1",
+      {headers:{Authorization:"Bearer " + value}});
+    if (r.status === 401){
+      document.getElementById("gate-err").textContent = "Неверный ключ";
+      return;
+    }
+    TOKEN = value;
+    localStorage.setItem("tarelka_token", value);
+    document.querySelector("main").innerHTML = '<div class="wall" id="wall"></div>';
+    wall = document.getElementById("wall");
+    load();
+  };
+
+  document.getElementById("go").onclick = enter;
+  input.onkeydown = e => { if (e.key === "Enter") enter(); };
+  input.focus();
+}
+
+let TAB = "orders";
+
+async function api(path, opts){
+  const o = opts || {};
+  o.headers = {...(o.headers||{}), ...(TOKEN && {Authorization:"Bearer " + TOKEN})};
+  const r = await fetch(path, o);
+  if (r.status === 401){
+    localStorage.removeItem("tarelka_token");
+    TOKEN = "";
+    gate();
+    return null;
+  }
+  return r.json();
+}
+
+/* ---- заказы ---- */
+async function renderOrders(){
+  const d = await api("/admin/orders?limit=60"); if(!d) return;
+  const {orders} = d;
+  document.getElementById("cnt").textContent = orders.length;
+  document.getElementById("sum").textContent =
+    orders.reduce((s,o)=>s+o.total,0).toLocaleString("ru-RU") + " ₽";
+  wall.className = "wall";
+  wall.innerHTML = orders.length ? orders.map(ticket).join("")
+    : `<div class="empty" style="grid-column:1/-1"><h2>Пока пусто</h2>
+       <p>Позвоните боту или напишите в WhatsApp —<br>заказ появится здесь сразу после подтверждения.</p></div>`;
+}
+
+/* ---- меню и стоп-лист ---- */
+async function renderMenu(){
+  const d = await api("/admin/menu"); if(!d) return;
+  wall.className = "";
+  wall.innerHTML = d.categories.map(c => `
+    <div class="mgroup"><h3>${esc(c.name)}</h3>
+      ${c.items.map(i => `
+        <div class="mrow ${i.available ? "" : "off"}">
+          <button class="sw ${i.available ? "" : "off"}"
+            aria-label="${i.available ? "Выключить" : "Включить"} ${esc(i.name)}"
+            onclick="toggle('${i.id}', ${!i.available})"></button>
+          <span class="mn">${esc(i.name)}</span>
+          <span class="mp">${i.from ? "от " : ""}${i.price} ₽</span>
+        </div>`).join("")}
+    </div>`).join("");
+}
+
+async function toggle(id, available){
+  await api("/admin/menu/" + id, {
+    method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({available})
+  });
+  renderMenu();
+}
+
+/* ---- разговоры ---- */
+async function renderCalls(){
+  const d = await api("/admin/calls?limit=25"); if(!d) return;
+  wall.className = "";
+  wall.innerHTML = d.calls.length ? d.calls.map(c => `
+    <details class="call">
+      <summary>
+        <span>${CHAN[c.channel] || c.channel} · ${esc(c.caller)}</span>
+        <span class="cm">${new Date(c.started_at).toLocaleString("ru-RU")} · ${c.lines || c.lines === 0 ? "" : ""}${c.lines_count || ""}</span>
+        <span class="cok">${c.order_number ? "заказ №" + c.order_number + " · " + c.total + " ₽" : "без заказа"}</span>
+      </summary>
+      <div class="log">${c.lines.map(l => `
+        <div class="line ${l.who === "assistant" ? "bot" : ""}">
+          <b>${l.who === "assistant" ? "бот" : "гость"}</b><span>${esc(l.text)}</span>
+        </div>`).join("")}</div>
+    </details>`).join("")
+    : `<div class="empty"><h2>Разговоров пока нет</h2>
+       <p>Здесь появятся расшифровки звонков и переписок.<br>По ним видно, где бот ошибся.</p></div>`;
+}
+
+async function load(){
+  try{
+    if (TAB === "orders") await renderOrders();
+    else if (TAB === "menu") await renderMenu();
+    else await renderCalls();
+    document.getElementById("dot").classList.remove("off");
+    document.getElementById("livetext").textContent = "на связи";
+  }catch(e){
+    document.getElementById("dot").classList.add("off");
+    document.getElementById("livetext").textContent = "нет связи";
+  }
+}
+
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); TAB = b.dataset.tab; wall.innerHTML = ""; load();
+});
+
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>
