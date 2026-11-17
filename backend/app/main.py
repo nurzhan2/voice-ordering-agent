@@ -63,24 +63,16 @@ def rub(cents: int) -> int:
 
 def item_view(row) -> dict:
     sizes = json.loads(row["sizes"]) if isinstance(row["sizes"], str) else row["sizes"]
-    mods = (
-        json.loads(row["modifiers"])
-        if isinstance(row["modifiers"], str)
-        else row["modifiers"]
-    )
+    mods = json.loads(row["modifiers"]) if isinstance(row["modifiers"], str) else row["modifiers"]
     out: dict = {"id": str(row["id"]), "name": row["name"]}
     if row["description"]:
         out["описание"] = row["description"]
     if sizes:
-        out["размеры"] = [
-            {"size": s["name"], "цена": rub(s["price_cents"])} for s in sizes
-        ]
+        out["размеры"] = [{"size": s["name"], "цена": rub(s["price_cents"])} for s in sizes]
     else:
         out["цена"] = rub(row["price_cents"])
     if mods:
-        out["добавки"] = [
-            {"name": m["name"], "цена": rub(m["price_cents"])} for m in mods
-        ]
+        out["добавки"] = [{"name": m["name"], "цена": rub(m["price_cents"])} for m in mods]
     if row["is_hit"]:
         out["хит"] = True
     return out
@@ -111,6 +103,13 @@ async def search_menu(q: str, limit: int = 5) -> dict:
 
 @app.get("/api/menu/recommend", dependencies=[Depends(auth)])
 async def recommend(kind: str = "main", limit: int = 4, call_id: str = "") -> dict:
+    """Что предлагать. kind:
+    main    — то, что продаём в первую очередь (сеты, пицца, мангал, горячее)
+    extra   — допродажа (роллы, салаты, десерты)
+    garnish — гарниры
+    sauce   — соусы
+    drink   — напитки
+    """
     # Жёсткий предел допродажи. Промпт можно обойти, счётчик — нет.
     if call_id and kind in ("garnish", "sauce", "drink", "extra"):
         d = await drafts.get(call_id)
@@ -119,16 +118,9 @@ async def recommend(kind: str = "main", limit: int = 4, call_id: str = "") -> di
                 "блюда в наличии": True,
                 "предлагать самой": False,
                 "что делать": "лимит твоих предложений исчерпан. Блюда есть, "
-                              "просто не предлагай их сам. Если гость попросит — "
-                              "найди через search_menu и добавь.",
+                "просто не предлагай их сам. Если гость попросит — "
+                "найди через search_menu и добавь.",
             }
-    """Что предлагать. kind:
-    main    — то, что продаём в первую очередь (сеты, пицца, мангал, горячее)
-    extra   — допродажа (роллы, салаты, десерты)
-    garnish — гарниры
-    sauce   — соусы
-    drink   — напитки
-    """
     if kind == "main":
         where, args = "c.tier = 1", []
     elif kind == "extra":
@@ -176,9 +168,7 @@ async def start_call(body: StartCall) -> dict:
 @app.post("/api/calls/{call_id}/finish", dependencies=[Depends(auth)])
 async def finish_call(call_id: str, status: str = "completed") -> dict:
     async with db.pool.acquire() as c:
-        await c.execute(
-            "UPDATE calls SET status=$2, ended_at=now() WHERE id=$1", call_id, status
-        )
+        await c.execute("UPDATE calls SET status=$2, ended_at=now() WHERE id=$1", call_id, status)
     return {"ok": True}
 
 
@@ -211,9 +201,7 @@ def draft_view(d: dict) -> dict:
             "название": it["name"]
             + (f" ({it['size']})" if it.get("size") else "")
             + (
-                " + " + ", ".join(m["name"] for m in it["modifiers"])
-                if it.get("modifiers")
-                else ""
+                " + " + ", ".join(m["name"] for m in it["modifiers"]) if it.get("modifiers") else ""
             ),
             "количество": it["quantity"],
             "сумма": rub(
@@ -265,9 +253,7 @@ async def add_item(call_id: str, body: AddItem) -> dict:
 
     sizes = json.loads(row["sizes"]) if isinstance(row["sizes"], str) else row["sizes"]
     mods_all = (
-        json.loads(row["modifiers"])
-        if isinstance(row["modifiers"], str)
-        else row["modifiers"]
+        json.loads(row["modifiers"]) if isinstance(row["modifiers"], str) else row["modifiers"]
     )
 
     price = row["price_cents"]
@@ -280,9 +266,7 @@ async def add_item(call_id: str, body: AddItem) -> dict:
                     {"size": s["name"], "цена": rub(s["price_cents"])} for s in sizes
                 ],
             }
-        match = next(
-            (s for s in sizes if s["name"].lower() == body.size.lower()), None
-        )
+        match = next((s for s in sizes if s["name"].lower() == body.size.lower()), None)
         if not match:
             return {
                 "error": "такого размера нет",
@@ -290,9 +274,7 @@ async def add_item(call_id: str, body: AddItem) -> dict:
             }
         price, size_name = match["price_cents"], match["name"]
 
-    chosen_mods = [
-        m for m in mods_all if m["name"].lower() in [x.lower() for x in body.modifiers]
-    ]
+    chosen_mods = [m for m in mods_all if m["name"].lower() in [x.lower() for x in body.modifiers]]
 
     d = await drafts.get(call_id)
     # одинаковая позиция с тем же размером и добавками — просто увеличиваем количество
@@ -300,11 +282,7 @@ async def add_item(call_id: str, body: AddItem) -> dict:
         same_mods = sorted(m["name"] for m in it["modifiers"]) == sorted(
             m["name"] for m in chosen_mods
         )
-        if (
-            it["item_id"] == str(row["id"])
-            and it.get("size") == size_name
-            and same_mods
-        ):
+        if it["item_id"] == str(row["id"]) and it.get("size") == size_name and same_mods:
             it["quantity"] += max(1, body.quantity)
             break
     else:
@@ -413,22 +391,14 @@ async def confirm(call_id: str) -> dict:
         total = 0
         receipt = []
         for it in d["items"]:
-            row = await c.fetchrow(
-                "SELECT * FROM menu_items WHERE id=$1", it["item_id"]
-            )
+            row = await c.fetchrow("SELECT * FROM menu_items WHERE id=$1", it["item_id"])
             if not row or not row["is_available"]:
                 return {"error": f"позиция «{it['name']}» закончилась, убери из заказа"}
 
-            sizes = (
-                json.loads(row["sizes"])
-                if isinstance(row["sizes"], str)
-                else row["sizes"]
-            )
+            sizes = json.loads(row["sizes"]) if isinstance(row["sizes"], str) else row["sizes"]
             price = row["price_cents"]
             if it.get("size"):
-                match = next(
-                    (s for s in sizes if s["name"] == it["size"]), None
-                )
+                match = next((s for s in sizes if s["name"] == it["size"]), None)
                 if not match:
                     return {"error": f"размер «{it['size']}» недоступен"}
                 price = match["price_cents"]
@@ -514,11 +484,13 @@ async def get_settings() -> dict:
 
 
 def _is_open(s: dict) -> tuple[bool, str, str]:
+    if s.get("ignore_hours"):
+        return True, s.get("opens", ""), s.get("closes", "")
     tz = ZoneInfo(s.get("timezone", "Europe/Moscow"))
     now = datetime.now(tz).time()
     opens = time.fromisoformat(s.get("opens", "00:00"))
     closes = time.fromisoformat(s.get("closes", "23:59"))
-    if opens <= closes:
+    if opens <= closes:  # noqa: SIM108 - overnight branch reads clearer as a block
         ok = opens <= now <= closes
     else:  # заведение работает через полночь
         ok = now >= opens or now <= closes
@@ -566,15 +538,11 @@ async def check_delivery(body: AddressCheck) -> dict:
 @app.get("/admin/orders", dependencies=[Depends(auth)])
 async def list_orders(limit: int = 50) -> dict:
     async with db.pool.acquire() as c:
-        rows = await c.fetch(
-            "SELECT * FROM orders ORDER BY created_at DESC LIMIT $1", limit
-        )
+        rows = await c.fetch("SELECT * FROM orders ORDER BY created_at DESC LIMIT $1", limit)
 
     orders = []
     for r in rows:
-        receipt = (
-            json.loads(r["receipt"]) if isinstance(r["receipt"], str) else r["receipt"]
-        )
+        receipt = json.loads(r["receipt"]) if isinstance(r["receipt"], str) else r["receipt"]
         orders.append(
             {
                 "number": r["number"],
@@ -592,8 +560,7 @@ async def list_orders(limit: int = 50) -> dict:
                 "created_at": r["created_at"].isoformat(),
                 "items": [
                     {
-                        "name": line["name"]
-                        + (f" · {line['size']}" if line.get("size") else ""),
+                        "name": line["name"] + (f" · {line['size']}" if line.get("size") else ""),
                         "qty": line["quantity"],
                         "sum": rub(line["total_cents"]),
                         "modifiers": [m["name"] for m in line.get("modifiers", [])],
@@ -623,12 +590,8 @@ async def update_status(number: int, body: StatusPatch) -> dict:
         if not row:
             raise HTTPException(404, "заказ не найден")
         if body.status not in ALLOWED.get(row["status"], set()):
-            raise HTTPException(
-                422, f"из «{row['status']}» нельзя перейти в «{body.status}»"
-            )
-        await c.execute(
-            "UPDATE orders SET status=$2 WHERE number=$1", number, body.status
-        )
+            raise HTTPException(422, f"из «{row['status']}» нельзя перейти в «{body.status}»")
+        await c.execute("UPDATE orders SET status=$2 WHERE number=$1", number, body.status)
     return {"ok": True}
 
 
@@ -704,9 +667,7 @@ async def admin_calls(limit: int = 30) -> dict:
                     "started_at": c_["started_at"].isoformat(),
                     "order_number": c_["order_number"],
                     "total": rub(c_["total_cents"]) if c_["total_cents"] else None,
-                    "lines": [
-                        {"who": l["speaker"], "text": l["text"]} for l in lines
-                    ],
+                    "lines": [{"who": line["speaker"], "text": line["text"]} for line in lines],
                 }
             )
     return {"calls": out}

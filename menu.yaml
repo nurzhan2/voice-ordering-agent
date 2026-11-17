@@ -24,9 +24,9 @@ settings:
   closes: "23:00"
   timezone: Europe/Moscow
 
-  # На время отладки — принимать заказы круглосуточно.
-  # ПЕРЕД БОЕВЫМ ЗАПУСКОМ поставить false.
-  ignore_hours: true
+  # true — принимать заказы круглосуточно (например, для отладки ночью).
+  # false — только в часы работы, проверка в check_delivery и confirm.
+  ignore_hours: false
 
   delivery_time: в течение часа
 
