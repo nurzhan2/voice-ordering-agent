@@ -18,8 +18,8 @@ logs:
 menu:          ## применить изменения menu.yaml
 	docker compose restart backend
 
-sip:           ## настроить SIP-транк Новофона
-	bash scripts/setup_sip.sh
+sip:           ## зарегистрировать SIP-транк и правило маршрутизации
+	bash scripts/setup_livekit.sh
 
 wa:            ## подписать вебхук WhatsApp
 	docker compose exec wa-bot python wa_bot.py setup

@@ -13,3 +13,15 @@ tarelka.db
 *.sql.gz
 demo_*.mp3
 menu_iiko.yaml
+
+# Editors, OS, tooling
+venv/
+.idea/
+.vscode/
+.DS_Store
+*.log
+logs/
+*.zip
+*.rar
+.ruff_cache/
+.pytest_cache/

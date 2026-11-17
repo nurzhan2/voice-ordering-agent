@@ -1,9 +1,9 @@
 """
 Подбор голоса для бота.
 
-    python voices.py            русские голоса из общей библиотеки
-    python voices.py mine       голоса, добавленные в твой аккаунт
-    python voices.py demo ID    озвучить приветствие этим голосом
+    python scripts/pick_voice.py            русские голоса из общей библиотеки
+    python scripts/pick_voice.py mine       голоса, добавленные в твой аккаунт
+    python scripts/pick_voice.py demo ID    озвучить приветствие этим голосом
 
 Последняя команда сохраняет mp3 рядом — можно послушать самому
 и отправить заказчику на выбор.
@@ -88,7 +88,7 @@ def shared() -> None:
         print("Открой библиотеку в браузере, там есть фильтр по языку:")
         print("  https://elevenlabs.io/app/voice-library")
         print("\nВыбери голос → Add to my voices → потом:")
-        print("  python voices.py mine")
+        print("  python scripts/pick_voice.py mine")
         return
 
     head(f"Похоже на русские женские голоса ({len(found)})")
@@ -102,7 +102,7 @@ def shared() -> None:
         print()
 
     print("Понравился — добавь в кабинете (Add to my voices), затем:")
-    print("  python voices.py mine")
+    print("  python scripts/pick_voice.py mine")
 
 
 def mine() -> None:
@@ -114,7 +114,7 @@ def mine() -> None:
         mark = " ← похож на русский" if looks_russian(v) else ""
         print(f"{v.get('name', '')[:24]:26} {v['voice_id']}"
               f"  {lb.get('use_case', '')}{mark}")
-    print("\nПослушать:  python voices.py demo <voice_id>")
+    print("\nПослушать:  python scripts/pick_voice.py demo <voice_id>")
     print("Выбрал — впиши в agent/.env:  ELEVENLABS_VOICE_ID=<id>")
 
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         mine()
     elif cmd == "demo":
         if len(sys.argv) < 3:
-            sys.exit("Укажи id:  python voices.py demo <voice_id>")
+            sys.exit("Укажи id:  python scripts/pick_voice.py demo <voice_id>")
         demo(sys.argv[2])
     else:
         shared()

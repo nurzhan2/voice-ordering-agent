@@ -133,7 +133,7 @@ cat <<FINAL
                     вход по BACKEND_TOKEN из .env
 
   Дальше:
-    1. Телефония        bash scripts/setup_sip.sh
+    1. Телефония        bash scripts/setup_livekit.sh
     2. WhatsApp         docker compose exec wa-bot python wa_bot.py setup
                         (сначала убедись, что https://${DOMAIN} открывается)
 
