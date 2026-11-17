@@ -1,4 +1,4 @@
-.PHONY: up down ps logs menu sip wa console chat smoke orders demo demo-clear iiko
+.PHONY: up dev down ps logs menu sip wa console chat smoke smoke-llm demo demo-clear iiko orders test lint
 
 up:            ## поднять всё
 	docker compose up -d --build
@@ -50,3 +50,9 @@ orders:
 	@curl -s localhost:8000/admin/orders \
 	  -H "Authorization: Bearer $$(grep BACKEND_TOKEN .env | cut -d= -f2)" \
 	  | python3 -m json.tool
+
+test:          ## pytest: API guards, hours, tool routing
+	python -m pytest -q
+
+lint:
+	python -m ruff check . && python -m ruff format --check .
