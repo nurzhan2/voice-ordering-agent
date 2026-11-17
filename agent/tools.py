@@ -9,6 +9,7 @@ import logging
 import os
 
 import httpx
+from guards import only_these
 
 logger = logging.getLogger("agent.tools")
 
@@ -43,7 +44,8 @@ class Backend:
     # -- звонок --
     async def start_call(self, channel: str, caller: str, room: str = "") -> str:
         d = await self._call(
-            "POST", "/api/calls",
+            "POST",
+            "/api/calls",
             json={"channel": channel, "caller": caller, "room": room},
         )
         if "call_id" not in d:
@@ -58,7 +60,8 @@ class Backend:
 
     async def log(self, call_id: str, speaker: str, text: str) -> None:
         await self._call(
-            "POST", f"/api/calls/{call_id}/transcript",
+            "POST",
+            f"/api/calls/{call_id}/transcript",
             json={"speaker": speaker, "text": text},
         )
 
@@ -68,16 +71,23 @@ class Backend:
 
     async def recommend(self, kind: str, call_id: str = "") -> dict:
         return await self._call(
-            "GET", "/api/menu/recommend",
+            "GET",
+            "/api/menu/recommend",
             params={"kind": kind, "call_id": call_id},
         )
 
-    async def add(self, call_id: str, item_id: str, quantity: int,
-                  size: str | None, modifiers: list[str]) -> dict:
+    async def add(
+        self, call_id: str, item_id: str, quantity: int, size: str | None, modifiers: list[str]
+    ) -> dict:
         return await self._call(
-            "POST", f"/api/calls/{call_id}/items",
-            json={"item_id": item_id, "quantity": quantity,
-                  "size": size, "modifiers": modifiers or []},
+            "POST",
+            f"/api/calls/{call_id}/items",
+            json={
+                "item_id": item_id,
+                "quantity": quantity,
+                "size": size,
+                "modifiers": modifiers or [],
+            },
         )
 
     async def remove(self, call_id: str, line_id: int) -> dict:
@@ -85,7 +95,8 @@ class Backend:
 
     async def qty(self, call_id: str, line_id: int, quantity: int) -> dict:
         return await self._call(
-            "PATCH", f"/api/calls/{call_id}/items/{line_id}",
+            "PATCH",
+            f"/api/calls/{call_id}/items/{line_id}",
             json={"quantity": quantity},
         )
 
@@ -94,22 +105,19 @@ class Backend:
 
     async def customer(self, call_id: str, **fields) -> dict:
         return await self._call(
-            "PATCH", f"/api/calls/{call_id}/customer",
+            "PATCH",
+            f"/api/calls/{call_id}/customer",
             json={k: v for k, v in fields.items() if v is not None},
         )
 
     async def offered(self, call_id: str, kind: str) -> dict:
-        return await self._call(
-            "POST", f"/api/calls/{call_id}/offered", json={"kind": kind}
-        )
+        return await self._call("POST", f"/api/calls/{call_id}/offered", json={"kind": kind})
 
     async def confirm(self, call_id: str) -> dict:
         return await self._call("POST", f"/api/calls/{call_id}/confirm")
 
     async def check_delivery(self, address: str) -> dict:
-        return await self._call(
-            "POST", "/api/delivery/check", json={"address": address}
-        )
+        return await self._call("POST", "/api/delivery/check", json={"address": address})
 
     async def settings(self) -> dict:
         return await self._call("GET", "/api/settings")
@@ -219,7 +227,10 @@ SCHEMAS = [
                     "persons": {"type": "integer"},
                     "cutlery": {"type": "boolean"},
                     "payment": {"type": "string", "enum": ["cash", "transfer", "card"]},
-                    "change_from": {"type": "integer", "description": "сдача с какой суммы, в рублях"},
+                    "change_from": {
+                        "type": "integer",
+                        "description": "сдача с какой суммы, в рублях",
+                    },
                     "comment": {"type": "string"},
                 },
             },
@@ -271,13 +282,16 @@ SCHEMAS = [
 async def dispatch(be: Backend, call_id: str, name: str, args: dict) -> dict:
     """Единая точка выполнения инструмента — общая для обоих каналов."""
     if name == "search_menu":
-        return await be.search(args["query"])
+        return only_these(await be.search(args["query"]))
     if name == "recommend":
-        return await be.recommend(args["kind"], call_id)
+        return only_these(await be.recommend(args["kind"], call_id))
     if name == "add_item":
         return await be.add(
-            call_id, args["item_id"], int(args.get("quantity", 1)),
-            args.get("size"), args.get("modifiers", []),
+            call_id,
+            args["item_id"],
+            int(args.get("quantity", 1)),
+            args.get("size"),
+            args.get("modifiers", []),
         )
     if name == "remove_item":
         return await be.remove(call_id, int(args["line_id"]))

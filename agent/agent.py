@@ -23,6 +23,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from guards import only_these, safe_kwargs
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -54,48 +55,6 @@ except ImportError:  # pragma: no cover
     logger.info("BackgroundAudioPlayer недоступен, звук работы выключен")
 
 
-def safe_kwargs(cls, **kwargs):
-    """Отбросить параметры, которых нет в этой версии библиотеки.
-
-    Набор параметров у LiveKit меняется от версии к версии. Вместо того
-    чтобы падать при запуске, отбрасываем неизвестные и пишем об этом
-    в лог — агент поднимется в любом случае.
-    """
-    import inspect
-
-    try:
-        allowed = set(inspect.signature(cls).parameters)
-    except (TypeError, ValueError):
-        return kwargs
-    if "kwargs" in allowed:
-        return kwargs
-    dropped = [k for k in kwargs if k not in allowed]
-    if dropped:
-        logger.warning("%s не поддерживает: %s", cls.__name__, ", ".join(dropped))
-    return {k: v for k, v in kwargs.items() if k in allowed}
-
-
-# Модель склонна дополнять список блюдами, которые знает из общих сведений:
-# предлагает соевый соус, которого в меню нет, а потом отказывает гостю.
-# Ограничение, приклеенное прямо к ответу инструмента, работает надёжнее
-# любых указаний в промпте — на результат вызова модель смотрит внимательнее.
-def only_these(result: dict) -> dict:
-    if not isinstance(result, dict) or "items" not in result:
-        return result
-    if result["items"]:
-        result["внимание"] = (
-            "Это ПОЛНЫЙ список по запросу. Других таких блюд в меню НЕТ. "
-            "Называй вслух только эти и добавляй только по их id. "
-            "Не дополняй список блюдами, которых здесь нет."
-        )
-    else:
-        result["внимание"] = (
-            "Ничего не нашлось. Скажи гостю, что такого нет, "
-            "и предложи поискать похожее."
-        )
-    return result
-
-
 class Operator(Agent):
     def __init__(self, be: Backend, call_id: str, settings: dict) -> None:
         super().__init__(instructions=prompts.build(settings, "voice"))
@@ -104,9 +63,7 @@ class Operator(Agent):
         self.settings = settings
 
     async def on_enter(self) -> None:
-        await self.session.say(
-            prompts.greeting(self.settings, "voice"), allow_interruptions=True
-        )
+        await self.session.say(prompts.greeting(self.settings, "voice"), allow_interruptions=True)
 
     @function_tool
     async def search_menu(self, context: RunContext, query: str) -> dict:
@@ -145,9 +102,7 @@ class Operator(Agent):
             size: название размера, если у блюда есть размеры.
             modifiers: названия добавок.
         """
-        return await self.be.add(
-            self.call_id, item_id, quantity, size, modifiers or []
-        )
+        return await self.be.add(self.call_id, item_id, quantity, size, modifiers or [])
 
     @function_tool
     async def remove_item(self, context: RunContext, line_id: int) -> dict:
@@ -159,9 +114,7 @@ class Operator(Agent):
         return await self.be.remove(self.call_id, line_id)
 
     @function_tool
-    async def set_quantity(
-        self, context: RunContext, line_id: int, quantity: int
-    ) -> dict:
+    async def set_quantity(self, context: RunContext, line_id: int, quantity: int) -> dict:
         """Изменить количество позиции.
 
         Args:
