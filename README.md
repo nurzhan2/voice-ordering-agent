@@ -1,270 +1,265 @@
 # Voice Ordering Agent
 
-An AI phone agent that takes food delivery orders in Russian. It answers the
-call, works out what the guest wants, upsells once, collects the address and
-payment method, and creates the order on a kitchen board — replacing the
-operator on the line.
+AI phone agent that takes food delivery orders in Russian for a restaurant: it
+answers the call, sells from the real menu, and puts a confirmed order on the
+kitchen board. Python, LiveKit Agents, FastAPI, PostgreSQL.
 
-Built for a delivery service in Makhachkala, Russia, and running on their live
-phone number.
+Built for Tarelka, a delivery café in Makhachkala, Dagestan, and piloted on a
+dedicated phone number in August 2026.
 
-**Stack:** Python 3.12 · LiveKit Agents · FastAPI · PostgreSQL · Redis · Docker
+[![CI](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12-blue)
 
 [Русская версия](README.ru.md)
 
----
-
-## Demo
-
-> *Recording of a live call — to be added.*
-
-Kitchen board, phone and WhatsApp orders side by side:
-
-> *Screenshot — to be added.*
-
----
-
 ## Problem
 
-- A delivery service loses orders whenever the operator is busy, off shift, or
-  the line is engaged during a rush.
-- Hiring a second operator costs more than the margin on the calls they'd catch.
-- Off-the-shelf voice bots read a fixed IVR tree; guests hang up on them.
-- The owner already has a sales script that works — it just needs someone to
-  follow it on every call, including at 11pm.
+- A delivery café loses orders whenever the only operator is busy, off shift,
+  or the line is engaged during the evening rush.
+- A second operator costs more than the margin on the calls they would catch.
+- IVR menus and keyword bots make callers press buttons or repeat themselves;
+  callers hang up.
+- The owner already had a sales script that works. The job was to follow it on
+  every call without drifting, inventing dishes, or pushing too hard.
 
----
+## Features
 
-## How it works
+- **Natural phone conversation in Russian**: streaming speech recognition,
+  semantic end-of-turn detection, and replies generated while the caller is
+  still finishing a sentence.
+- **No invented dishes**: the menu never enters the prompt; items are found by
+  tool call and added only by database ID.
+- **Server-side sales limits**: the upsell counter lives in Redis and the API
+  stops returning suggestions after two offers, whatever the prompt says.
+- **Prices re-read at confirmation**: the in-call draft is treated as untrusted;
+  totals are recomputed from PostgreSQL, and sold-out dishes block the order.
+- **One tool layer, two channels**: phone and WhatsApp share the same tools,
+  guards and sales script.
+- **Kitchen board**: a single-page panel with live orders, a stop list, and
+  call transcripts for reviewing how the agent spoke.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    P[Phone call] -->|SIP| S[LiveKit SIP]
-    S --> A[agent.py]
+    P[Phone call] -->|SIP :5080| S[livekit-sip]
+    S --> L[LiveKit server]
+    L --> A[agent.py]
     W[WhatsApp] -->|webhook| B[wa_bot.py]
-    A --> T[tools.py]
+    A --> T[tools.dispatch + guards]
     B --> T
-    T --> F[FastAPI]
-    F --> DB[(PostgreSQL)]
-    F --> R[(Redis)]
+    T --> F[FastAPI backend]
+    F --> R[(Redis: call draft)]
+    F --> DB[(PostgreSQL: menu, orders, transcripts)]
     F --> K[Kitchen board]
     F -.-> I[iiko POS]
 ```
 
-Both channels go through the same tool layer and the same sales script, so a
-change to the script applies to phone and chat at once.
+- `agent.py` runs the voice loop: Deepgram for speech-to-text, an OpenAI model
+  with function calling, ElevenLabs for speech. It knows nothing about the menu.
+- `tools.py` declares the tools the model may call and routes them to the
+  backend; `guards.py` attaches constraints to the results. WhatsApp enters the
+  same `dispatch`, so both channels get identical rules.
+- The FastAPI backend owns the order: trigram search over dish names and
+  pronunciation aliases, the per-call draft in Redis (4 h TTL), and the final
+  order in PostgreSQL.
+- The menu lives in `menu.yaml` and is synced into the database on start, so a
+  menu change is a reviewed diff rather than an edit in an admin UI.
+- iiko is the restaurant's POS. The client is written but not connected; see
+  Limitations.
 
-`agent.py` runs the voice pipeline: speech to text, an LLM with function
-calling, text to speech. It holds no menu knowledge — every dish name and price
-comes from a tool call.
+## Tech stack
 
-`FastAPI` owns the order: menu search with pronunciation aliases, the draft in
-Redis during the call, and the final order written to PostgreSQL. Prices are
-re-read from the database at confirmation rather than trusted from the draft.
+| Layer | Technology | Why |
+|---|---|---|
+| Voice pipeline | LiveKit Agents 1.6 | turn detection, preemptive generation and a SIP bridge in one framework |
+| Speech-to-text | Deepgram nova-3 | streaming Russian recognition; falls back to OpenAI without a key |
+| LLM | OpenAI gpt-4.1-mini | function calling with low enough latency for a phone turn |
+| Text-to-speech | ElevenLabs Flash v2.5 | fast first byte and a natural Russian voice; falls back to OpenAI |
+| API | FastAPI, Pydantic | async I/O; request models mirror the tool schemas |
+| Storage | PostgreSQL 16 + pg_trgm | orders, menu and transcripts; fuzzy search over names and aliases |
+| Call state | Redis 7 | the draft order lives only for the call and expires on its own |
+| Telephony | self-hosted livekit-sip | see the SIP decision below |
+| Messaging | Wazzup API | WhatsApp Business gateway with webhooks |
+| Edge | Caddy 2 | automatic TLS for the panel and the webhook |
+| Deploy | Docker Compose, systemd, bash | one VPS, provisioned by one script |
 
-`iiko` is the restaurant's POS. The integration is written but not connected —
-see Limitations.
+## Key decisions & trade-offs
 
----
+- **The menu never enters the prompt.** Pasting the menu into the system prompt
+  is the obvious route; on real calls the model then offered dishes that don't
+  exist. Here dish names and prices come only from tool calls, and `add_item`
+  accepts only an ID returned by search, so an invented dish is rejected by the
+  API. The cost is an extra round trip to the model on most turns.
+
+- **Constraints ride on tool results, not only in the prompt.** In one call the
+  model offered soy sauce, which the menu doesn't have, then had to refuse it
+  when the guest said yes. The same rule in the system prompt was ignored; attached to the search result as a
+  "this list is complete" note, it holds. The catch: the guard has to run in the
+  shared tool layer. It first lived in the voice agent only, and WhatsApp
+  searches reached the model without it.
+
+- **Limits enforced by the server, not requested from the model.** The upsell
+  cap is a counter in the Redis draft; prices are recomputed from PostgreSQL at
+  confirmation. The prompt still describes both rules, but the API makes them
+  hold when the model drifts. The cost is a few extra queries per order.
+
+- **Self-hosted SIP instead of the managed one.** The host blocks UDP 5060, and
+  calls through LiveKit Cloud connected with one-way audio: the cloud advertised
+  one IP in SDP and sent RTP from another, and the carrier stopped sending the
+  caller's voice. A bridge on port 5080, on the same public IP as the media,
+  fixed both. One more service to run, and the trunk had to be created through
+  the Twirp API because the CLI dropped the codec settings.
+
+- **Mask the tool-call pause instead of only shortening it.** Latency work cut
+  what could be cut: the VAD model is preloaded per worker, tool steps per turn
+  are capped, and replies are capped at 120 tokens. What remains is a model
+  round trip per tool call, so the agent plays keyboard typing during it. It
+  changes no timing; a caller hears an operator entering the order rather than
+  dead air.
+
+## Working with the LLM
+
+- **Quality checks.** `make smoke-llm` plays an eleven-turn order against the
+  live model and asserts on behaviour: no phrases the client's script bans, one
+  upsell attempt, the address validated, and no order created before the guest
+  agreed. Call transcripts are stored and shown in the panel for manual review.
+- **Guards.** Dish IDs only from search; a complete-list note on every search
+  result; the upsell counter and price re-check in the backend; a hard
+  `max_completion_tokens` cap so replies stay short enough for a phone line.
+- **Prompting for speech.** Telling a model to "sound natural" changes nothing.
+  The prompt instead carries six robotic-vs-human pairs, most of the robotic
+  lines taken from the agent's own early calls,
+  a fifteen-word ceiling per reply, and the operator's own banned phrases.
+- **Cost and latency.** Speech synthesis bills by character, so the reply cap is
+  also a cost control. Each tool call adds a model round trip; the agent may
+  take at most three per turn.
+- **Provider failures.** Speech-to-text and text-to-speech fall back to OpenAI
+  when a key is missing. WhatsApp answers with an apology if a reply fails. See
+  Limitations for what is not covered.
 
 ## Quick start
 
-**Requires:** Docker, Docker Compose. API keys for OpenAI at minimum.
+Tests need no services or API keys:
 
 ```bash
 git clone https://github.com/nurzhan2/voice-agent.git
 cd voice-agent
-cp .env.example .env      # fill in keys
-docker compose up --build
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+make test
 ```
 
-The admin panel comes up at `http://localhost:8000/admin`, the API docs at
-`/docs`. Without telephony configured you can still talk to the agent from the
-terminal:
+Backend and kitchen board (Docker):
 
 ```bash
-cd agent && python chat.py     # text conversation, same script and tools
+cp .env.example .env     # local defaults work as is
+make dev                 # postgres, redis, backend
 ```
 
-### Environment variables
+The board opens at `http://localhost:8000/admin`; the token is `BACKEND_TOKEN`
+from `.env`. API docs are at `/docs`. To fill the board with sample orders:
+`make demo`.
 
-| Variable | Required | What it does |
+Text conversation with the agent, same script and tools, no telephony
+(needs `OPENAI_API_KEY`):
+
+```bash
+BACKEND_URL=http://localhost:8000 make chat
+```
+
+Phone calls need the LiveKit, SIP and speech keys and a server with a public IP;
+`scripts/deploy.sh` provisions one, `scripts/setup_livekit.sh` registers the
+trunk.
+
+| Variable | Purpose | Example |
 |---|---|---|
-| `OPENAI_API_KEY` | yes | the model that drives the conversation |
-| `DATABASE_URL` | yes | PostgreSQL connection string |
-| `BACKEND_TOKEN` | yes | protects the API and the admin panel |
-| `DEEPGRAM_API_KEY` | no | streaming speech recognition; falls back to OpenAI, slower |
-| `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | no | natural voice; falls back to OpenAI TTS |
-| `LIVEKIT_URL` / `_API_KEY` / `_API_SECRET` | for phone | LiveKit Cloud or self-hosted |
-| `NOVOFON_SIP_*` | for phone | SIP trunk credentials |
-| `WAZZUP_API_KEY` | for WhatsApp | messaging gateway |
-| `IIKO_API_LOGIN` | no | POS integration; orders stay in the panel without it |
+| `OPENAI_API_KEY` | the model that runs the conversation | `sk-...` |
+| `DATABASE_URL` | PostgreSQL connection | `postgresql://tarelka:pass@postgres:5432/tarelka` |
+| `REDIS_URL` | call drafts | `redis://redis:6379/0` |
+| `BACKEND_TOKEN` | protects the API and the board | any long random string |
+| `DEEPGRAM_API_KEY` | streaming STT; OpenAI used without it | |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | voice; OpenAI used without them | |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | voice sessions | `ws://127.0.0.1:7880` |
+| `NOVOFON_SIP_*` | SIP trunk credentials | |
+| `WAZZUP_API_KEY`, `WAZZUP_CHANNEL_ID` | WhatsApp | |
+| `IIKO_API_LOGIN`, `IIKO_ORGANIZATION_ID` | POS export; orders stay on the board without it | |
 
-Every optional key degrades gracefully — the agent logs what it fell back to
-and keeps running.
-
----
-
-## Structure
-
-```
-agent/
-├── agent.py        voice pipeline, tool definitions, latency tuning
-├── wa_bot.py       WhatsApp: webhooks, per-chat locking, deduplication
-├── prompts.py      sales script, assembled from restaurant settings
-├── tools.py        tool schemas and backend client, shared by both channels
-├── smoke.py        automated checks
-└── chat.py         text-mode conversation for cheap script iteration
-backend/app/
-├── main.py         order API, admin panel, delivery-zone and hours checks
-├── db.py           menu sync from YAML, trigram search over aliases
-├── drafts.py       in-call order state in Redis
-├── iiko.py         POS integration
-└── admin.html      kitchen board
-scripts/
-├── deploy.sh       provisions a bare Ubuntu server end to end
-└── setup_livekit.sh  registers the SIP trunk and dispatch rule
-menu.yaml           170 dishes, ~470 pronunciation aliases, restaurant settings
-```
-
----
-
-## Decisions and trade-offs
-
-**The menu never enters the prompt.** The obvious approach is to paste the menu
-into the system prompt. In production the model then offers dishes that don't
-exist — in one real call it suggested soy sauce, the guest picked it, and the
-order couldn't be created. Instead the agent is told it does not know the menu:
-names and prices come only from tool calls, and items are added **by database
-ID**. An invented dish has no ID, so `add_item` rejects it. The cost is an extra
-round trip per turn, which shows up as latency. Worth it — a bot that invents
-menu items is worse than no bot.
-
-**Constraints ride along with tool results.** Search responses carry a field
-telling the model the list is complete and nothing may be appended to it. The
-same rule sitting in the system prompt was ignored regularly; attached to the
-tool output it holds. Less elegant than one authoritative prompt, but it
-survives contact with a real conversation.
-
-**Two guards on order confirmation instead of one.** `confirm_order` requires
-an explicit consent flag plus the guest's verbatim words, and the backend
-re-checks server-side. Redundant by design: the model once confirmed an order
-immediately after the guest answered a question about payment. Client-side
-validation of an LLM's judgement isn't validation.
-
-**Self-hosted SIP rather than the managed service.** The hosting provider
-blocks UDP 5060 and only unblocks it for registered legal entities with telecom
-paperwork. Running the SIP bridge on 5080 avoided weeks of process, and also
-fixed asymmetric RTP — the cloud service advertised one IP in SDP while sending
-media from another, which the carrier silently dropped. The trade-off is one
-more component to operate.
-
----
-
-## Debugging notes
-
-Two problems that took longer than the code did.
-
-**One-way audio.** Calls connected, the guest heard the bot, the bot heard
-nothing. The carrier insisted their recordings were fine. A packet capture
-settled it:
-
-```
-LiveKit → carrier :  1096 RTP packets, full payload
-carrier → LiveKit :    25 RTP packets, 12 bytes each
-```
-
-Twelve bytes is an RTP header with zero audio. Half a second of empty packets,
-then silence. Identical on G.722 and PCMU, which ruled out codec negotiation
-and pointed at the carrier's media path.
-
-**Four-second replies.** Instrumenting each stage — end-of-utterance delay,
-time to first token, time to first byte — showed where it actually went.
-Prewarming the VAD model (every call spawned a fresh process and reloaded
-Silero from disk), capping tool steps per turn (tools run sequentially, each
-adding a round trip), enforcing `max_completion_tokens`, and playing keyboard
-typing during tool calls. The last one changes no timing at all — a filled
-pause simply reads as much shorter, and an order-taker typing is what a caller
-expects to hear.
-
----
-
-## Tests
+## Testing
 
 ```bash
-make smoke        # 21 API checks: search, pricing, delivery zone, order guards
-make smoke-llm    # eleven-turn dialogue against the live model
-make wa-test      # replays Wazzup webhooks without touching WhatsApp
+make test     # pytest
+make lint     # ruff check + format check
 ```
 
-`smoke-llm` asserts on conversational behaviour, not exceptions: no banned
-phrases from the client's script, upsell attempted exactly once, address
-validated, and the order **not** created before the guest agreed. That last
-assertion exists because a real call failed it.
+The pytest suite runs the FastAPI app against in-memory fakes of PostgreSQL and
+Redis that fail on any query the code isn't expected to send. It covers the
+order guards (unknown IDs rejected, sizes required, prices re-read at confirm,
+sold-out dishes, minimum order, missing address), the upsell cap, opening hours
+including overnight shifts, the delivery-zone check, and routing for every tool
+the model can call. CI runs lint and tests on every push.
 
-There are no unit tests — see Limitations.
+`make smoke` and `make smoke-llm` are end-to-end scripts against a running stack
+and the live model. They need API keys, so they stay out of CI.
 
----
+## Project structure
 
-## Deploy
-
-A single Ubuntu VPS, provisioned by one script:
-
-```bash
-scp -r . root@SERVER:/opt/voice-agent
-ssh root@SERVER
-cd /opt/voice-agent && cp .env.example .env && nano .env
-bash scripts/deploy.sh
+```
+agent/        voice agent, WhatsApp bot, tools, guards, sales prompt
+backend/app/  FastAPI app, menu sync, Redis drafts, iiko client, kitchen board
+tests/        pytest suite with PostgreSQL and Redis fakes
+scripts/      server provisioning, SIP trunk setup, voice picker
+caddy/        TLS reverse proxy config
+livekit/      self-hosted LiveKit server config
+menu.yaml     menu, pronunciation aliases and restaurant settings
 ```
 
-`deploy.sh` installs Docker, refuses to continue while placeholder passwords
-are still in `.env`, opens the firewall, brings up nine containers, registers a
-systemd unit for restart-on-boot, and schedules nightly PostgreSQL dumps with
-14-day rotation. Caddy issues TLS automatically.
+## Results
 
-Telephony is a separate overlay, because it only applies when SIP is
-self-hosted:
+- **Pilot.** In August 2026 the agent ran on a dedicated phone number and took
+  orders end to end: a caller ordered by voice and the order appeared on the
+  kitchen board with items, address, cutlery and payment method.
+- **One-way audio, found by packet capture.** On the failing calls the carrier
+  sent 25 RTP packets of 12 bytes each, headers with no audio, then nothing,
+  while 1,096 packets with audio went the other way. Identical on G.722 and
+  PCMU, which ruled out codec negotiation. Moving SIP onto the media's public IP
+  fixed it.
+- **Menu.** 170 dishes in 16 categories with about 470 pronunciation aliases.
+  Callers say "пеперони", "пиперони" or just "острая пицца" for the same pizza;
+  recognition depended on aliases more than on any model setting.
+- **Tests.** 35 tests, about 1 second on a laptop.
 
-```bash
-docker compose -f docker-compose.yml -f livekit-sip.yml up -d
-bash scripts/setup_livekit.sh
-```
+## Limitations & roadmap
 
-Deployment is manual. No CI.
-
----
-
-## Limitations
-
+- **Pilot only.** The restaurant's main line was never switched over, and the
+  pilot server is not running now.
+- **Consent to confirm is enforced by the prompt alone.** The backend checks the
+  address, hours, minimum order and prices, but nothing at the API level proves
+  the guest said yes. Next: a consent flag with the guest's words on
+  `confirm_order`, rejected server-side when missing.
+- **Fallbacks are chosen at startup.** If ElevenLabs runs out of quota
+  mid-month, calls go silent instead of switching voices; this happened during
+  testing. Next: a runtime fallback adapter. There is no fallback LLM.
+- **Delivery zone is a string match** on town names plus a street-word
+  heuristic, with no geocoding.
+- **iiko is untested against a live account.** The client uses the v1 token
+  endpoint; the restaurant's key requires v2 credentials that never arrived.
+- **WhatsApp delivery is blocked.** The bot replied and the gateway accepted the
+  messages, but Meta blocked the restaurant's WhatsApp Business number.
 - **Single restaurant.** Menu, settings and orders have no tenant scoping.
-  Serving a second location needs a schema change and per-number routing.
-- **Russian only.** The prompt, aliases and voice are all Russian-specific.
-- **No unit tests.** Coverage is integration-level; a broken helper surfaces as
-  a failed smoke run rather than a precise failure.
-- **No CI.** Tests are run by hand before deploying.
-- **POS integration unverified.** The iiko client is written but has never
-  exchanged a request with a live account — credentials are still pending.
-  Orders accumulate in the panel and reach the manager over WhatsApp instead.
-- **Latency depends on the LLM round trip.** Each tool call adds one. Capping
-  tool steps limits the worst case, it doesn't remove it.
-- **The agent trusts speech recognition.** A misheard street name is confirmed
-  back to the guest, which usually catches it — but nothing validates the
-  address against a real map.
+- **Deprecated LiveKit APIs.** Endpointing options and `metrics_collected` are
+  deprecated in 1.6 and will go in 2.0; the version is pinned until they are
+  migrated.
 
----
+## My role
 
-## What's next
+Designed and built end to end as the only developer on a client project:
+architecture, backend, agent and prompt, telephony, deployment, tests. The
+restaurant provided the sales script and the menu.
 
-- Tenant scoping, so one deployment can serve several restaurants — the largest
-  and most obvious gap.
-- Connect iiko once credentials arrive; orders currently need manual entry into
-  the POS.
-- Alias tuning from real call transcripts. The admin panel already stores them;
-  recognition quality depends on aliases more than on any model setting.
-- CI running the smoke suite on push.
+## Terms
 
----
+Client work, published with the client's permission. No open-source license is
+granted: the code is shown for review, not for reuse.
 
-## License
-
-MIT
+Nurzhan Kalmurat · [LinkedIn](https://linkedin.com/in/kalmuratnurzhan) · [GitHub](https://github.com/nurzhan2)
