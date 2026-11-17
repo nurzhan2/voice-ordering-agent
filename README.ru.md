@@ -7,7 +7,7 @@
 Сделан для «Тарелки», кафе с доставкой в Махачкале. В августе 2026 года прошёл
 пилот на отдельном номере.
 
-[![CI](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/nurzhan2/voice-ordering-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nurzhan2/voice-ordering-agent/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 
 [English version](README.md)
@@ -143,8 +143,8 @@ flowchart LR
 Тестам не нужны ни сервисы, ни ключи:
 
 ```bash
-git clone https://github.com/nurzhan2/voice-agent.git
-cd voice-agent
+git clone https://github.com/nurzhan2/voice-ordering-agent.git
+cd voice-ordering-agent
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 make test

@@ -7,7 +7,7 @@ kitchen board. Python, LiveKit Agents, FastAPI, PostgreSQL.
 Built for Tarelka, a delivery café in Makhachkala, Dagestan, and piloted on a
 dedicated phone number in August 2026.
 
-[![CI](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nurzhan2/voice-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/nurzhan2/voice-ordering-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nurzhan2/voice-ordering-agent/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 
 [Русская версия](README.ru.md)
@@ -143,8 +143,8 @@ flowchart LR
 Tests need no services or API keys:
 
 ```bash
-git clone https://github.com/nurzhan2/voice-agent.git
-cd voice-agent
+git clone https://github.com/nurzhan2/voice-ordering-agent.git
+cd voice-ordering-agent
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 make test

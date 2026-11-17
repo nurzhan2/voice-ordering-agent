@@ -1,5 +1,5 @@
 [project]
-name = "voice-agent"
+name = "voice-ordering-agent"
 version = "0.1.0"
 description = "AI phone agent taking food delivery orders in Russian"
 requires-python = ">=3.12"
