@@ -49,9 +49,7 @@ async def get(call_id: str) -> dict:
 
 
 async def save(draft: dict) -> None:
-    await redis.setex(
-        _key(draft["call_id"]), TTL, json.dumps(draft, ensure_ascii=False)
-    )
+    await redis.setex(_key(draft["call_id"]), TTL, json.dumps(draft, ensure_ascii=False))
 
 
 async def drop(call_id: str) -> None:

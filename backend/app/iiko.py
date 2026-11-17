@@ -116,9 +116,7 @@ async def push_order(order_id: str) -> None:
             r.raise_for_status()
             iiko_id = r.json().get("orderInfo", {}).get("id")
         async with db.pool.acquire() as c:
-            await c.execute(
-                "UPDATE orders SET iiko_order_id=$2 WHERE id=$1", order_id, iiko_id
-            )
+            await c.execute("UPDATE orders SET iiko_order_id=$2 WHERE id=$1", order_id, iiko_id)
         logger.info("заказ %s ушёл в iiko: %s", o["number"], iiko_id)
     except Exception:
         logger.exception("не удалось отправить заказ %s в iiko", o["number"])

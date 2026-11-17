@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -20,9 +21,7 @@ MENU_FILE = pathlib.Path(os.getenv("MENU_FILE", "/app/menu.yaml"))
 
 async def connect() -> None:
     global pool
-    pool = await asyncpg.create_pool(
-        os.environ["DATABASE_URL"], min_size=2, max_size=10
-    )
+    pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=2, max_size=10)
     async with pool.acquire() as c:
         await c.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
         await c.execute(SCHEMA)
@@ -36,8 +35,7 @@ async def connect() -> None:
             """
         )
         await c.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uniq_item_name "
-            "ON menu_items (lower(name))"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uniq_item_name ON menu_items (lower(name))"
         )
     logger.info("database ready")
 
@@ -52,17 +50,22 @@ def to_cents(value: float | int) -> int:
     return int(round(float(value) * 100))
 
 
+def _read_menu_file() -> str | None:
+    return MENU_FILE.read_text(encoding="utf-8") if MENU_FILE.exists() else None
+
+
 async def sync_menu() -> int:
     """Заливает menu.yaml в базу. Идемпотентно: совпадение по названию.
 
     Меню правится в menu.yaml и применяется через `make menu`.
     Так не нужна админка, и меню лежит в гите вместе с кодом.
     """
-    if not MENU_FILE.exists():
+    raw = await asyncio.to_thread(_read_menu_file)
+    if raw is None:
         logger.warning("menu.yaml не найден, пропускаю синхронизацию")
         return 0
 
-    data = yaml.safe_load(MENU_FILE.read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load(raw) or {}
     cats = data.get("categories", [])
     items = data.get("items", [])
     conf = data.get("settings", {})

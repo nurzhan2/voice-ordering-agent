@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import uuid
@@ -70,9 +69,7 @@ async def send_order(order: dict, receipt: list[dict], settings: dict) -> None:
     """Ошибка отправки не должна ронять заказ — он уже принят и сохранён."""
     to = (settings or {}).get("manager_whatsapp", "").strip()
     if not (to and KEY and CHANNEL):
-        logger.info(
-            "уведомление не отправлено: не настроен номер менеджера или Wazzup"
-        )
+        logger.info("уведомление не отправлено: не настроен номер менеджера или Wazzup")
         return
 
     try:

@@ -60,7 +60,8 @@ def looks_russian(v: dict) -> bool:
             labels.get("accent", ""),
             v.get("language", ""),
             " ".join(v.get("verified_languages", []) or [])
-            if isinstance(v.get("verified_languages"), list) else "",
+            if isinstance(v.get("verified_languages"), list)
+            else "",
         )
     )
     return any(h in haystack for h in RU_HINTS)
@@ -94,8 +95,9 @@ def shared() -> None:
     head(f"Похоже на русские женские голоса ({len(found)})")
     for v in found:
         lb = v.get("labels") or {}
-        print(f"{v.get('name', '')[:24]:26} {lb.get('age', ''):14} "
-              f"{lb.get('use_case', '')[:18]:20}")
+        print(
+            f"{v.get('name', '')[:24]:26} {lb.get('age', ''):14} {lb.get('use_case', '')[:18]:20}"
+        )
         print(f"   id: {v['voice_id']}")
         if v.get("preview_url"):
             print(f"   послушать: {v['preview_url']}")
@@ -112,8 +114,7 @@ def mine() -> None:
     for v in voices:
         lb = v.get("labels") or {}
         mark = " ← похож на русский" if looks_russian(v) else ""
-        print(f"{v.get('name', '')[:24]:26} {v['voice_id']}"
-              f"  {lb.get('use_case', '')}{mark}")
+        print(f"{v.get('name', '')[:24]:26} {v['voice_id']}  {lb.get('use_case', '')}{mark}")
     print("\nПослушать:  python scripts/pick_voice.py demo <voice_id>")
     print("Выбрал — впиши в agent/.env:  ELEVENLABS_VOICE_ID=<id>")
 

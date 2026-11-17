@@ -61,7 +61,7 @@ async def main() -> None:
 
     while True:
         try:
-            text = input(f"{YOU}Вы:{OFF}  ").strip()
+            text = (await asyncio.to_thread(input, f"{YOU}Вы:{OFF}  ")).strip()
         except (EOFError, KeyboardInterrupt):
             break
         if not text:

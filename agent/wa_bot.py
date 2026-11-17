@@ -41,9 +41,7 @@ SESSION_TTL = 60 * 60 * 6
 app = FastAPI()
 oai = AsyncOpenAI()
 be = Backend()
-redis = aioredis.from_url(
-    os.environ["REDIS_URL"].replace("/0", "/1"), decode_responses=True
-)
+redis = aioredis.from_url(os.environ["REDIS_URL"].replace("/0", "/1"), decode_responses=True)
 
 
 # ---------------------------------------------------------------------------
@@ -130,9 +128,7 @@ async def channel_id() -> str:
     if CHANNEL:
         return CHANNEL
     async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.get(
-            f"{WAZZUP}/channels", headers={"Authorization": f"Bearer {KEY}"}
-        )
+        r = await c.get(f"{WAZZUP}/channels", headers={"Authorization": f"Bearer {KEY}"})
         r.raise_for_status()
         for ch in r.json():
             if ch.get("transport") in ("whatsapp", "wapi"):

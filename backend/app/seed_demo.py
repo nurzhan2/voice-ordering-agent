@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from . import db
 
@@ -96,7 +96,7 @@ ORDERS = [
 
 async def seed() -> None:
     await db.connect()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async with db.pool.acquire() as c, c.transaction():
         await c.execute("DELETE FROM orders WHERE number >= $1", DEMO_FROM)
@@ -125,8 +125,16 @@ async def seed() -> None:
                                     total_cents, status, receipt, created_at)
                 VALUES ($1,$2,$3,$4,$5,true,$6,$7,$8,$9,$10,$11,$12)
                 """,
-                o["channel"], o["name"], o["phone"], o["address"], o["persons"],
-                o["payment"], o["change_from"], o["comment"], total, o["status"],
+                o["channel"],
+                o["name"],
+                o["phone"],
+                o["address"],
+                o["persons"],
+                o["payment"],
+                o["change_from"],
+                o["comment"],
+                total,
+                o["status"],
                 json.dumps(receipt, ensure_ascii=False),
                 now - timedelta(minutes=o["min_ago"]),
             )

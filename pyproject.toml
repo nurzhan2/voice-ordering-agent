@@ -1,0 +1,22 @@
+[project]
+name = "voice-agent"
+version = "0.1.0"
+description = "AI phone agent taking food delivery orders in Russian"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["backend/app/admin.html"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC"]
+# Russian prompt text and docstrings run long; wrapping them hurts readability.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "prompts", "tools", "agent", "wa_bot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
